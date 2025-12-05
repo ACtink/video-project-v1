@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Omegle Destroyer</title>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      background: #0c0c0c;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    h1 {
+      margin-top: 20px;
+      font-size: 2.3rem;
+      color: #00c8ff;
+      text-shadow: 0 0 20px #00c8ff;
+      text-align: center;
+    }
+
+    /* CONNECTION STATUS */
+    #status {
+      margin-top: 10px;
+      font-size: 1rem;
+      color: #bbb;
+    }
+
+    /* LOADING ANIMATION */
+    #loading {
+      margin-top: 15px;
+      font-size: 1.2rem;
+      display: none;
+      color: #00c8ff;
+      text-shadow: 0 0 10px #00c8ff;
+      animation: pulse 1.5s infinite ease-in-out;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.3; }
+      50% { opacity: 1; }
+      100% { opacity: 0.3; }
+    }
+
+    /* VIDEO CONTAINER */
+    .video-container {
+      margin-top: 30px;
+      display: flex;
+      gap: 25px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    video {
+      width: 360px;
+      height: 260px;
+      background: #000;
+      border-radius: 15px;
+      border: 3px solid #00c8ff;
+      box-shadow: 0 0 20px rgba(0, 200, 255, 0.5);
+      object-fit: cover;
+    }
+
+    /* BUTTONS */
+    .controls {
+      margin-top: 30px;
+      display: flex;
+      gap: 20px;
+    }
+
+    .controls button {
+      padding: 14px 24px;
+      font-size: 18px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: transform 0.15s ease, background 0.2s ease;
+      min-width: 120px;
+    }
+
+    .controls button:active {
+      transform: scale(0.95);
+    }
+
+    #startBtn {
+      background: #00c8ff;
+      color: #000;
+    }
+    #startBtn:hover {
+      background: #0099cc;
+    }
+
+    .next {
+      background: #ffaa00;
+      color: #000;
+    }
+    .next:hover {
+      background: #cc8800;
+    }
+
+    .end {
+      background: #ff4444;
+      color: white;
+    }
+    .end:hover {
+      background: #cc0000;
+    }
+
+    /* RESPONSIVE VIDEO STACKING */
+    @media (max-width: 900px) {
+      .video-container {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      video {
+        width: 70vw;
+        height: 35vh;
+      }
+
+      .controls {
+        flex-direction: column;
+      }
+
+      .controls button {
+        width: 85vw;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>Omegle Destroyer — Random Stranger Video Chat</h1>
+
+  <!-- Status messages -->
+  <div id="status">Status: <span id="connectionState">Disconnected</span></div>
+  <div id="loading">Finding a stranger…</div>
+
+  <!-- Video container -->
+  <div class="video-container">
+    <video id="localVideo" autoplay muted playsinline></video>
+    <video id="remoteVideo" autoplay playsinline></video>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <button id="startBtn">Start</button>
+    <button id="nextBtn" class="next">Next</button>
+    <button id="endBtn" class="end">Close</button>
+  </div>
+
+  <script src="client.js"></script>
+</body>
+</html>
