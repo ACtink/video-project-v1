@@ -3,6 +3,8 @@ const { usersQueue, activePairs, sockets } = require("../server/state.js");
 
 function matchTwoUsers() {
   // Need at least 2 users
+
+  console.log("users in queue:", ...usersQueue);
   if (usersQueue.length < 2) return;
 
   const userAId = usersQueue.shift();
@@ -10,6 +12,8 @@ function matchTwoUsers() {
 
   const userA = sockets.get(userAId);
   const userB = sockets.get(userBId);
+
+
 
   // console.log(userA, userB)
 

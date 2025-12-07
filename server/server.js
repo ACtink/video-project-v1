@@ -4,15 +4,15 @@ const { WebSocketServer } = require("ws");
 
 const path = require("path");
 
-
-const { handleDisconnect , handleConnection , handleMessage } = require("./handlers");
-
+const {
+  handleDisconnect,
+  handleConnection,
+  handleMessage,
+} = require("./handlers");
 
 const app = express();
 
-
 app.use(express.static(path.join(__dirname, "../client")));
-
 
 // REST API routes
 app.get("/api/status", (req, res) => {
@@ -23,6 +23,12 @@ app.get("/", (req, res) => {
   res.sendFile(path.resolve(__dirname, "../client/index.html"));
 });
 
+// app.get("/tv-logo.png", (req, res) => {
+//   res.sendFile(path.resolve(__dirname, "../client/public/tv-logo.png"));
+
+//   console.log("Served TV logo");
+// });
+
 const server = http.createServer(app);
 
 // WebSocket Server
@@ -30,18 +36,15 @@ const wss = new WebSocketServer({ server });
 
 // Signaling logic
 wss.on("connection", (socket) => {
-  
-    handleConnection(socket);
+  handleConnection(socket);
 
   socket.on("message", (msg) => {
-     handleMessage(socket, msg);
+    handleMessage(socket, msg);
   });
 
   // On disconnect
-socket.on("close", () => handleDisconnect(socket));
-
-
-})
+  socket.on("close", () => handleDisconnect(socket));
+});
 
 server.listen(3000, () => {
   console.log("Server running on port 3000");

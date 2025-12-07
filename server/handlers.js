@@ -34,7 +34,7 @@ function handleConnection(socket) {
 function handleMessage(socket, msg) {
   const data = JSON.parse(msg);
 
-
+console.log("Received message from", socket.id, ":", data.type);
   if (data.type === "join-queue") {
     usersQueue.push(socket.id);
     console.log("total users in queue:", usersQueue.length);
@@ -44,91 +44,76 @@ function handleMessage(socket, msg) {
     return;
   }
 
-  // if(data.type==="force-disconnect"){
-  //   console.log(socket.id, "force disconnected their partner");
-
-  //   const partnerId = activePairs.get(socket.id);
-
-  //   if (partnerId) {
-  //     const partnerSocket = sockets.get(partnerId);
-
-  //     // Notify partner
-  //     if (partnerSocket && partnerSocket.readyState === 1) {
-  //       partnerSocket.send(JSON.stringify({ type: "partner-disconnected" }));
-  //     }
-
-  //     // Remove pair from activePairs
-  //     activePairs.delete(socket.id);
-  //     activePairs.delete(partnerId);
-
-  //     console.log("Removed pairing due to force-disconnect:", socket.id, "<->", partnerId);
-  //   }
-
-  //   return;
-  // }
 
 
+  if (data.type === "end-call") {
+    const userA = socket;
+    const userAId = socket.id;
 
-  if (data.type ==="next") {
-    console.log(socket.id, "clicked NEXT");
+    const userBId = activePairs.get(userAId);
+    const userB = sockets.get(userBId);
 
-    // 1. Remove old partner if any
-    const partnerId = activePairs.get(socket.id);
+    // Break pairing for both
+    activePairs.delete(userAId);
+    activePairs.delete(userBId);
 
-    if (partnerId) {
-      const partnerSocket = sockets.get(partnerId);
-
-      // Notify partner
-      if (partnerSocket && partnerSocket.readyState === 1) {
-        partnerSocket.send(JSON.stringify({ type: "partner-disconnected" }));
-      }
-
-          partnerSocket.send(JSON.stringify({ type: "matching-to-next" }));
-
-          socket.send(JSON.stringify({ type: "matching-to-next" }));
-
-
-      // Remove pair from activePairs
-      activePairs.delete(socket.id);
-      activePairs.delete(partnerId);
-
-      console.log("Removed old pairing:", socket.id, "<->", partnerId);
+    // Notify partner that the conversation ended
+    if (userB && userB.readyState === 1) {
+      userB.send(JSON.stringify({ type: "partner-ended-call", reason: "peerEndedCall" }));
     }
 
-    // 2. Place user back in queue
-    usersQueue.push(partnerId);
-    console.log("Queue size:", usersQueue.length);
-
-    // 3. Let client know they are queued again
-
-    // 4. Try matching again
-    // matchTwoUsers();
-
     return;
+  } 
+
+ if (data.type === "next") {
+  const userA = socket;
+  const userAId = socket.id;
+
+  const userBId = activePairs.get(userAId);
+  const userB = sockets.get(userBId);
+
+  // Break pairing for both
+  activePairs.delete(userAId);
+  activePairs.delete(userBId);
+
+  // Notify partner that the conversation ended
+  if (userB && userB.readyState === 1) {
+    userB.send(JSON.stringify({ type: "force-disconnect" }));
   }
 
+  // Requeue ONLY the user who clicked next
+  usersQueue.push(userAId);
+  userA.send(JSON.stringify({ type: "queued" }));
+  userA.send(JSON.stringify({ type: "force-disconnect" , reason: "searchingNextForYou"}));
 
-
-  const partnerId = activePairs.get(socket.id);
-  if (!partnerId) return;
-
-  const partnerSocket = sockets.get(partnerId);
-  if (partnerSocket && partnerSocket.readyState === 1) {
-    partnerSocket.send(JSON.stringify(data));
-  }
-
-
-
-
-
-
-
-
-
-
-
+  // Try matching again
+  matchTwoUsers();
+  return;
 }
 
+  // Relay signaling messages
+  const partnerId = activePairs.get(socket.id);
+  const partnerSocket = sockets.get(partnerId);
+
+  if (partnerSocket && partnerSocket.readyState === 1) {
+    partnerSocket.send(
+      JSON.stringify({
+        type: data.type,
+        offer: data.offer,
+        answer: data.answer,
+        candidate: data.candidate,
+      })
+    );    
+
+
+ 
+  }
+}
+
+
+
+  
+ 
 
 
 

@@ -1,9 +1,11 @@
 // =========================
 // WebSocket Setup
 // =========================
-const socket = new WebSocket(
-  "wss://boomless-plushed-paisley.ngrok-free.dev"
-);
+// const socket = new WebSocket(
+//   "wss://boomless-plushed-paisley.ngrok-free.dev"
+// );
+
+const socket = new WebSocket("ws://localhost:3000");
 
 socket.onopen = () => {
   console.log("WebSocket connected");
@@ -37,7 +39,7 @@ socket.onmessage = async (event) => {
 
     case "partner-disconnected":
       updateStatus("Partner disconnected");
-      disconnectPeerOnly();
+      disconnectPeerOnly(message.reason);
       break;
     case "queued":
       hideLoading();
@@ -45,9 +47,11 @@ socket.onmessage = async (event) => {
       break;
 
     case "force-disconnect":
-      console.log("Partner forced disconnect");
-      disconnectPeerOnly(); // close peer for this side too
-      updateStatus("Partner skipped / nexted");
+      disconnectPeerOnly(message.reason);
+      break;
+
+    case "partner-ended-call":
+      disconnectPeerOnly(message.reason);
       break;
 
     case "connected":
@@ -68,6 +72,9 @@ socket.onerror = (error) => {
   console.error("WebSocket error:", error);
   updateStatus("WebSocket error");
 };
+
+
+
 
 socket.onclose = () => {
   console.log("WebSocket disconnected");
@@ -145,6 +152,10 @@ async function startWebRTC() {
     remoteVideo.srcObject = event.streams[0];
   };
 
+  peer.onconnectionstatechange = () => {
+    console.log("State:", peer.connectionState);
+  };
+
   // Use the already opened camera stream
   if (localStream) {
     localStream.getTracks().forEach((track) => {
@@ -164,6 +175,7 @@ async function startWebRTC() {
     const offer = await peer.createOffer();
     await peer.setLocalDescription(offer);
 
+    console.log("Sending offer:", offer);
     sendSignal({ type: "offer", offer });
   }
 }
@@ -181,6 +193,7 @@ async function handleOffer(offer) {
   const answer = await peer.createAnswer();
   await peer.setLocalDescription(answer);
 
+  console.log("Sending answer:", answer);
   sendSignal({ type: "answer", answer });
 }
 
@@ -203,6 +216,9 @@ async function handleRemoteICE(candidate) {
 
 function endCall() {
   updateStatus("Call ended");
+  hideLoading();
+
+  sendSignal({ type: "end-call" });
 
   if (peer) {
     peer.close();
@@ -263,7 +279,21 @@ startBtn.onclick = async () => {
 // };
 
 
-function disconnectPeerOnly() {
+function disconnectPeerOnly(messageReason) {
+
+
+
+  if(messageReason==="searchingNextForYou"){
+    updateStatus("Finding next stranger...");
+    showLoading();
+  } else {
+    updateStatus("Stranger disconnected. Click Next to search again.");
+  } 
+
+
+
+
+
   if (peer) {
     peer.close();
     peer = null;
@@ -291,6 +321,5 @@ nextBtn.onclick = () => {
 
 
 endBtn.onclick = () => {
-  updateStatus("Disconnected");
   endCall();
 };
