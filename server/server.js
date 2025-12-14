@@ -23,11 +23,6 @@ app.get("/", (req, res) => {
   res.sendFile(path.resolve(__dirname, "../client/index.html"));
 });
 
-// app.get("/tv-logo.png", (req, res) => {
-//   res.sendFile(path.resolve(__dirname, "../client/public/tv-logo.png"));
-
-//   console.log("Served TV logo");
-// });
 
 const server = http.createServer(app);
 

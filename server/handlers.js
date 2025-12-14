@@ -37,12 +37,22 @@ function handleMessage(socket, msg) {
 console.log("Received message from", socket.id, ":", data.type);
   if (data.type === "join-queue") {
     usersQueue.push(socket.id);
-    console.log("total users in queue:", usersQueue.length);
+    console.log("*******total users in queue:******", usersQueue.length);
    socket.send(JSON.stringify({ type: "queued" }));
 
     matchTwoUsers();
     return;
   }
+
+
+  if (data.type === "leave-queue") {
+    const index = usersQueue.indexOf(socket.id);
+    if (index !== -1) {
+      usersQueue.splice(index, 1);
+      console.log("User", socket.id, "left the queue.");
+    }
+    return;
+  } 
 
 
 
@@ -83,6 +93,9 @@ console.log("Received message from", socket.id, ":", data.type);
 
   // Requeue ONLY the user who clicked next
   usersQueue.push(userAId);
+
+      console.log("*******total users in queue:******", usersQueue.length);
+
   userA.send(JSON.stringify({ type: "queued" }));
   userA.send(JSON.stringify({ type: "force-disconnect" , reason: "searchingNextForYou"}));
 

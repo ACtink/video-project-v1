@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Omegle Destroyer</title>
+  <title>HelloStranger</title>
 
   <link rel="icon" type="image/png" href="public/video-call-logo.png" />
 
@@ -26,16 +26,16 @@
       color: #00c8ff;
       text-shadow: 0 0 20px #00c8ff;
       text-align: center;
+      padding: 0 12px;
     }
 
-    /* CONNECTION STATUS */
     #status {
       margin-top: 10px;
       font-size: 1rem;
       color: #bbb;
+      text-align: center;
     }
 
-    /* LOADING ANIMATION */
     #loading {
       margin-top: 15px;
       font-size: 1.2rem;
@@ -43,6 +43,7 @@
       color: #00c8ff;
       text-shadow: 0 0 10px #00c8ff;
       animation: pulse 1.5s infinite ease-in-out;
+      text-align: center;
     }
 
     @keyframes pulse {
@@ -51,30 +52,67 @@
       100% { opacity: 0.3; }
     }
 
-    /* VIDEO CONTAINER */
     .video-container {
       margin-top: 30px;
       display: flex;
-      gap: 25px;
-      flex-wrap: wrap;
-      justify-content: center;
+      flex-direction: column;
+      gap: 20px;
+      align-items: center;
+      /* width: 100%; */
+    }
+
+    /* VIDEO WRAPPER */
+    .video-wrapper {
+      position: relative;
+      width: 92vw;
+      max-width: 720px;
+      aspect-ratio: 16 / 9;
     }
 
     video {
-      width: 360px;
-      height: 260px;
+      width: 100%;
+      height: 100%;
       background: #000;
       border-radius: 15px;
       border: 3px solid #00c8ff;
       box-shadow: 0 0 20px rgba(0, 200, 255, 0.5);
-      object-fit: cover;
+      object-fit: contain;
     }
 
-    /* BUTTONS */
+    /* ROTATING LOADER */
+    .video-loader {
+      position: absolute;
+      inset: 0;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.6);
+      border-radius: 15px;
+      z-index: 5;
+      box-sizing: border-box;
+      padding: 3px;
+    }
+
+    .spinner {
+      width: 60px;
+      height: 60px;
+      border: 6px solid rgba(0, 200, 255, 0.2);
+      border-top: 6px solid #00c8ff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
     .controls {
       margin-top: 30px;
       display: flex;
       gap: 20px;
+      justify-content: center;
+      flex-wrap: wrap;
+      padding-bottom: 20px;
     }
 
     .controls button {
@@ -96,44 +134,33 @@
       background: #00c8ff;
       color: #000;
     }
-    #startBtn:hover {
-      background: #0099cc;
-    }
 
     .next {
       background: #ffaa00;
       color: #000;
-    }
-    .next:hover {
-      background: #cc8800;
     }
 
     .end {
       background: #ff4444;
       color: white;
     }
-    .end:hover {
-      background: #cc0000;
-    }
 
-    /* RESPONSIVE VIDEO STACKING */
-    @media (max-width: 900px) {
+    /* DESKTOP */
+    @media (min-width: 1200px) {
       .video-container {
-        flex-direction: column;
-        align-items: center;
+        flex-direction: row;
+        gap: 40px;
       }
 
-      video {
-        width: 70vw;
-        height: 35vh;
+      .video-wrapper {
+        width: calc((100vw - 160px) / 2);
+        max-width: 1200px;
+        height: 60vh;
+        aspect-ratio: auto;
       }
 
-      .controls {
-        flex-direction: column;
-      }
-
-      .controls button {
-        width: 85vw;
+      h1 {
+        font-size: 2.6rem;
       }
     }
   </style>
@@ -141,25 +168,38 @@
 
 <body>
 
-  <h1>Omegle Destroyer — Random Stranger Video Chat</h1>
+<h1>HelloStranger — Talk to Real People Across the Globe</h1>
 
-  <!-- Status messages -->
-  <div id="status">Status: <span id="connectionState">Disconnected</span></div>
-  <div id="loading">Finding a stranger…</div>
+<div id="status">
+  Status: <span id="connectionState">Disconnected</span>
+</div>
 
-  <!-- Video container -->
-  <div class="video-container">
+<div id="loading">Finding a stranger…</div>
+
+<div class="video-container">
+  <div class="video-wrapper">
     <video id="localVideo" autoplay muted playsinline></video>
+  </div>
+
+  <div class="video-wrapper">
+    <div class="video-loader" id="remoteLoader">
+      <div class="spinner"></div>
+    </div>
     <video id="remoteVideo" autoplay playsinline></video>
   </div>
+</div>
 
-  <!-- Controls -->
-  <div class="controls">
-    <button id="startBtn">Start</button>
-    <button id="nextBtn" class="next">Next</button>
-    <button id="endBtn" class="end">Close</button>
-  </div>
+<div class="controls">
+  <button id="startBtn">Start</button>
+  <button id="nextBtn" class="next">Next</button>
+  <button id="endBtn" class="end">Close</button>
+  <button id="exitBtn" class="end">Exit</button>
 
-  <script src="client.js"></script>
+</div>
+
+<script src="client.js"></script>
+
+
+
 </body>
 </html>

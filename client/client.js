@@ -42,7 +42,7 @@ socket.onmessage = async (event) => {
       disconnectPeerOnly(message.reason);
       break;
     case "queued":
-      hideLoading();
+      // hideLoading();
       updateStatus("you are added in the queue...");
       break;
 
@@ -96,18 +96,46 @@ const startBtn = document.getElementById("startBtn");
 const nextBtn = document.getElementById("nextBtn");
 const endBtn = document.getElementById("endBtn");
 
+const exitBtn = document.getElementById("exitBtn");
+
+
+nextBtn.style.display = "none";
+endBtn.style.display = "none";
+exitBtn.style.display = "none";
+
+
 const loading = document.getElementById("loading");
 const statusText = document.getElementById("connectionState");
+
+
+const remoteLoader = document.getElementById("remoteLoader");
+
+remoteVideo.addEventListener("playing", () => {
+  remoteLoader.style.display = "none";
+});
+
+
+
+
+
+
+
+
+
 
 // =========================
 // UI Helper Functions
 // =========================
 function showLoading() {
   loading.style.display = "block";
+  remoteLoader.style.display = "flex";
+
 }
 
 function hideLoading() {
   loading.style.display = "none";
+  remoteLoader.style.display = "none";
+
 }
 
 function updateStatus(text) {
@@ -153,8 +181,43 @@ async function startWebRTC() {
   };
 
   peer.onconnectionstatechange = () => {
-    console.log("State:", peer.connectionState);
+    console.log("WebRTC connection state:", peer.connectionState);
+
+    console.log("peer ka signaling state  " , peer.signalingState);
+
+
+    // 🔄 Still connecting — user is NOT connected yet
+    if (peer.connectionState === "connecting") {
+      // updateStatus("Connecting to a stranger...");
+      startBtn.style.display = "none";
+      nextBtn.style.display = "none"; // ❗ MUST stay hidden
+      endBtn.style.display = "inline-block";
+      startBtn.disabled = true;
+    }
+
+    // ✅ Fully connected — NOW enable Next
+    if (peer.connectionState === "connected") {
+      // updateStatus("You are connected 🎉");
+      startBtn.style.display = "none";
+      nextBtn.style.display = "inline-block"; // ✅ allowed
+      endBtn.style.display = "inline-block";
+      startBtn.disabled = true;
+      exitBtn.style.display = "none";
+    }
+
+    // ❌ Connection lost or failed
+    if (
+      peer.connectionState === "disconnected" ||
+      peer.connectionState === "failed"
+    ) {
+      updateStatus("Disconnected");
+
+      nextBtn.style.display = "none";
+      startBtn.style.display = "inline-block";
+      startBtn.disabled = false;
+    }
   };
+
 
   // Use the already opened camera stream
   if (localStream) {
@@ -214,11 +277,33 @@ async function handleRemoteICE(candidate) {
 // End Call Function
 // =========================
 
-function endCall() {
-  updateStatus("Call ended");
+function endCall(whichButtonClicked) {
+  if(whichButtonClicked==="Exit"){
+    updateStatus("Stopped searching for a stranger.");
+     if (peer) {
+       peer.close();
+
+        peer = null;
+  
+     }
+  }else{
+
+      updateStatus("Call ended");
+
+        sendSignal({ type: "end-call" });
+
+
+
+  }
   hideLoading();
 
-  sendSignal({ type: "end-call" });
+   startBtn.style.display = "inline-block";
+   startBtn.disabled = false;
+
+   nextBtn.style.display = "none";
+   endBtn.style.display = "none";
+   exitBtn.style.display = "none";
+
 
   if (peer) {
     peer.close();
@@ -242,9 +327,12 @@ startBtn.onclick = async () => {
   updateStatus("Requesting camera & microphone permission...");
   showLoading();
 
+  exitBtn.style.display = "inline-block";
+
+
   try {
     // Request media now (user gesture: click). This will trigger browser prompt.
-    const preStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    const preStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
 
     // Show a local preview immediately
     localVideo.srcObject = preStream;
@@ -315,11 +403,22 @@ nextBtn.onclick = () => {
 
   // disconnectPeerOnly(); // ❗ end peer connection
   sendSignal({ type: "next" });
-  sendSignal({ type: "force-disconnect" });
+  // sendSignal({ type: "force-disconnect" });
 
 };
 
+
+exitBtn.onclick = (e) => {
+  console.log(e.target.innerText)
+  sendSignal({ type: "leave-queue" });
+
+  endCall(e.target.innerText);
+}
 
 endBtn.onclick = () => {
   endCall();
 };
+
+
+
+
