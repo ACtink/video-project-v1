@@ -1,11 +1,11 @@
 // =========================
 // WebSocket Setup
 // =========================
-// const socket = new WebSocket(
-//   "wss://boomless-plushed-paisley.ngrok-free.dev"
-// );
+const socket = new WebSocket(
+  "wss://boomless-plushed-paisley.ngrok-free.dev"
+);
 
-const socket = new WebSocket("ws://localhost:3000");
+// const socket = new WebSocket("ws://localhost:3000");
 
 socket.onopen = () => {
   console.log("WebSocket connected");
@@ -328,11 +328,12 @@ startBtn.onclick = async () => {
   showLoading();
 
   exitBtn.style.display = "inline-block";
+  startBtn.style.display = "none";
 
 
   try {
     // Request media now (user gesture: click). This will trigger browser prompt.
-    const preStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    const preStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
 
     // Show a local preview immediately
     localVideo.srcObject = preStream;
