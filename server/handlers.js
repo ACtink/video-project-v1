@@ -9,12 +9,17 @@ const { matchTwoUsers } = require("../utility/utils.js");
 
 
 
-function handleConnection(socket) {
+function handleConnection(socket, wss) {
   socket.id = uuidv4();
   socket.lastPartner = null;
 
 
   console.log("New client connected:", socket.id);
+  console.log("Total connected clients:", wss.clients.size);
+  console.log("Current active pairs:", activePairs);
+    console.log("Total users in queue:", usersQueue.length);
+
+
 
   // Store socket
   sockets.set(socket.id, socket);

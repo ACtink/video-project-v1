@@ -1,8 +1,23 @@
 // =========================
 // WebSocket Setup
 // =========================
+
+let url = ""
+console.log("Window MODE:", window.MODE);
+if(window.MODE=="development"){
+url = "ws://localhost:3000"
+console.log("Development mode detected");
+}
+else{
+  
+  console.log("Production mode detected");
+  url = "wss://boomless-plushed-paisley.ngrok-free.dev"
+}
+
+
+
 const socket = new WebSocket(
-  "wss://boomless-plushed-paisley.ngrok-free.dev"
+ url
 );
 
 // const socket = new WebSocket("ws://localhost:3000");

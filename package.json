@@ -3,15 +3,27 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server/server.js",
+    "dev": "nodemon server/server.js"
   },
   "keywords": [],
   "author": "anuj chopra <writetoanujchopra@gmail.com>",
   "license": "MIT",
   "description": "",
   "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
     "express": "5.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^8.20.4",
     "uuid": "8.3.2",
-    "ws": "8.18.3"
+    "ws": "8.18.3",
+    "zod": "^4.2.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.11"
   }
 }
