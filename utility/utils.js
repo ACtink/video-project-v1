@@ -2,9 +2,8 @@
 const { usersQueue, activePairs, sockets } = require("../server/state.js");
 
 function matchTwoUsers() {
-  // Need at least 2 users
-
   console.log("users in queue:", ...usersQueue);
+
   if (usersQueue.length < 2) return;
 
   const userAId = usersQueue.shift();
@@ -13,50 +12,51 @@ function matchTwoUsers() {
   const userA = sockets.get(userAId);
   const userB = sockets.get(userBId);
 
-
-
-  // console.log(userA, userB)
-
-  if(userA && userB){
-
-     userA.lastPartner = userB.id;
-     userB.lastPartner = userA.id;
-
-  }
- 
-
-
-  // If one of them disconnected after entering queue
+  // If one of them disconnected
   if (!userA || !userB) {
-    // retry matching
+    if (userA) usersQueue.push(userAId);
+    if (userB) usersQueue.push(userBId);
     matchTwoUsers();
     return;
   }
 
+  // ❗ CHECK BEFORE SETTING lastPartner
+  if (userA.lastPartner === userBId || userB.lastPartner === userAId) {
+    console.log("Skipping rematch:", userAId, "<->", userBId);
 
-  // if (userA.lastPartner === userBId || userB.lastPartner === userAId) {
-  //   // Skip this match, try again
-  //   console.log("Skipping rematch:", userAId, "<->", userBId);
+    usersQueue.push(userAId);
+    usersQueue.push(userBId);
+    return;
+  }
 
-  //   // Put them back and reshuffle
-  //   usersQueue.push(userAId);
-  //   usersQueue.push(userBId);
-  //   // matchTwoUsers(); // retry
-  //   return;
-  // }
-
-
-  // Pair them
+  // ✅ NOW they are allowed to match
   activePairs.set(userAId, userBId);
   activePairs.set(userBId, userAId);
 
+  // ✅ SET lastPartner ONLY AFTER SUCCESSFUL MATCH
+  userA.lastPartner = userBId;
+  userB.lastPartner = userAId;
+
   // Send match event
   userA.send(
-    JSON.stringify({ type: "matched", role: "caller", partner: userBId })
+    JSON.stringify({
+      type: "matched_ack",
+      success: "ok",
+      role: "caller",
+      partner: userBId,
+    })
   );
+
   userB.send(
-    JSON.stringify({ type: "matched", role: "receiver", partner: userAId })
+    JSON.stringify({
+      type: "matched_ack",
+      success: "ok",
+      role: "receiver",
+      partner: userAId,
+    })
   );
+
+  console.log("users queue after matching", usersQueue.length);
 }
 
 module.exports = { matchTwoUsers };

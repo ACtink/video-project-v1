@@ -2,6 +2,7 @@
 const { usersQueue, activePairs, sockets } = require("./state");
 const { v4: uuidv4 } = require("uuid");
 const { matchTwoUsers } = require("../utility/utils.js");
+const { success } = require("zod");
 
 
 
@@ -38,12 +39,15 @@ function handleConnection(socket, wss) {
 
 function handleMessage(socket, msg) {
   const data = JSON.parse(msg);
+if(data.type=="ping"){
+  return
 
+}
 console.log("Received message from", socket.id, ":", data.type);
   if (data.type === "join-queue") {
     usersQueue.push(socket.id);
     console.log("*******total users in queue:******", usersQueue.length);
-   socket.send(JSON.stringify({ type: "queued" }));
+   socket.send(JSON.stringify({ type: "queued_ack" , success:"ok" }));
 
     matchTwoUsers();
     return;
@@ -60,25 +64,62 @@ console.log("Received message from", socket.id, ":", data.type);
   } 
 
 
+if (data.type === "end-call") {
+  const userA = socket;
+  const userAId = socket.id;
 
-  if (data.type === "end-call") {
-    const userA = socket;
-    const userAId = socket.id;
+  const userBId = activePairs.get(userAId);
+  const userB = sockets.get(userBId);
 
-    const userBId = activePairs.get(userAId);
-    const userB = sockets.get(userBId);
+  console.log("user b first id--->", userBId);
 
-    // Break pairing for both
+  // ❗ Break pairing ONLY if it exists
+  if (userBId) {
     activePairs.delete(userAId);
     activePairs.delete(userBId);
+  }
 
-    // Notify partner that the conversation ended
-    if (userB && userB.readyState === 1) {
-      userB.send(JSON.stringify({ type: "partner-ended-call", reason: "peerEndedCall" }));
-    }
+  // Notify partner ONLY if valid & connected
+  if (userB && userB.readyState === 1) {
+    userB.send(
+      JSON.stringify({
+        type: "queued_and_searching_next_for_you",
+        success: "ok",
+      })
+    );
+  }
 
-    return;
-  } 
+  console.log("user b second id--->", userBId);
+
+  // ✅ ADD userB to queue ONLY IF valid and not already queued
+  if (userBId && userB && !usersQueue.includes(userBId)) {
+    usersQueue.push(userBId);
+    console.log("usersqueue----dekh", ...usersQueue);
+  }
+
+  // ❗ REMOVE userA from queue if present
+  const userAIndex = usersQueue.indexOf(userAId);
+  if (userAIndex !== -1) {
+    usersQueue.splice(userAIndex, 1);
+  }
+
+  // Notify user A
+  if (userA && userA.readyState === 1) {
+    userA.send(
+      JSON.stringify({
+        type: "successfully_ended_call",
+        reason: "You ended Call",
+        success: "ok",
+      })
+    );
+  }
+
+  console.log("usersqueue length after clicking close", usersQueue.length);
+
+  return;
+}
+
+
 
  if (data.type === "next") {
   const userA = socket;
@@ -93,16 +134,19 @@ console.log("Received message from", socket.id, ":", data.type);
 
   // Notify partner that the conversation ended
   if (userB && userB.readyState === 1) {
-    userB.send(JSON.stringify({ type: "force-disconnect" }));
+  userB.send(JSON.stringify({ type: "queued_and_searching_next_for_you" ,success:"ok" }));
   }
 
   // Requeue ONLY the user who clicked next
   usersQueue.push(userAId);
+  usersQueue.push(userBId);
+
 
       console.log("*******total users in queue:******", usersQueue.length);
 
-  userA.send(JSON.stringify({ type: "queued" }));
-  userA.send(JSON.stringify({ type: "force-disconnect" , reason: "searchingNextForYou"}));
+  userA.send(JSON.stringify({ type: "queued_and_searching_next_for_you", success:"ok"}));
+
+  // userA.send(JSON.stringify({ type: "force-disconnect" , reason: "searchingNextForYou"}));
 
   // Try matching again
   matchTwoUsers();
@@ -149,8 +193,18 @@ function handleDisconnect(socket) {
 
     // Notify partner that their peer disconnected
     if (partnerSocket && partnerSocket.readyState === 1) {
-      partnerSocket.send(JSON.stringify({ type: "partner-disconnected" }));
+      partnerSocket.send(JSON.stringify({ type: "partner-disconnected-websocket-connection" }));
+        partnerSocket.send(
+          JSON.stringify({
+            type: "queued_and_searching_next_for_you",
+            success: "ok",
+          })
+        );
+
     }
+
+      usersQueue.push(partnerId);
+
 
     // Remove both sides of the pairing
     activePairs.delete(socket.id);
