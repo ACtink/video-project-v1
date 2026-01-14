@@ -97,6 +97,7 @@ const loginHandler = async (req, res) => {
       });
     }
 
+    console.log("FOUND USER during login:", user);
     // -------- Compare password --------
     const isPasswordMatch = await bcrypt.compare(password, user.password);
 
@@ -108,9 +109,14 @@ const loginHandler = async (req, res) => {
     }
 
     // -------- Generate JWT --------
+    console.log("PAYLOAD BEFORE TOKEN:", {
+      id: user._id,
+      username: user.username,
+      country: user.country,
+    });
+
     const token = generateToken({
-      userId: user._id,
-      email: user.email,
+      id: user._id,
       username: user.username,
       country: user.country,
     });
@@ -129,8 +135,10 @@ const loginHandler = async (req, res) => {
 
     res.cookie("token", token, {
       httpOnly: true,
-      secure: false, // localhost
-      sameSite: "lax", // allow cross-port
+      // secure: false, // localhost
+      secure: true, // localhost
+
+      sameSite: "none", // allow cross-port
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -159,8 +167,9 @@ const logoutHandler = (req, res) => {
   try {
     res.clearCookie("token", {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax", // must match login cookie
+      // secure: process.env.NODE_ENV === "production",
+      secure: true,
+      sameSite: "none", // must match login cookie
     });
 
     return res.status(200).json({

@@ -20,9 +20,13 @@ const http = require("http");
 const { WebSocketServer } = require("ws");
 const cors = require("cors");
 
+
 // const path = require("path");
 
 const authRoutes = require("./routes/auth.routes");
+const userRoutes = require("./routes/user.routes");
+
+const chatRoutes = require("./routes/chat");
 
 
 const cookieParser = require("cookie-parser");
@@ -34,6 +38,7 @@ const {
   handleDisconnect,
   handleConnection,
   handleMessage,
+  handleChatAuth,
 } = require("./handlers");
 const authMiddleware = require("./middlewares/auth");
 // const { sign } = require("crypto");
@@ -45,10 +50,14 @@ const app = express();
 // ---------- Middleware ----------
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: [
+      "http://localhost:5173",
+      "https://boomless-plushed-paisley.ngrok-free.dev",
+    ],
     credentials: true,
   })
 );
+
 
 app.use(express.json());
 
@@ -57,6 +66,10 @@ app.use(cookieParser());
 
 
 app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/chat", chatRoutes);
+
+
 
 
 // ---------- REST API ----------
@@ -93,8 +106,13 @@ const server = http.createServer(app);
 
 const wss = new WebSocketServer({ server });
 
-wss.on("connection", (socket) => {
+
+
+
+
+wss.on("connection", (socket, req) => {
   handleConnection(socket, wss);
+  handleChatAuth(socket, req); // 👈 HERE
 
   socket.on("message", (msg) => {
     handleMessage(socket, msg);
@@ -106,3 +124,4 @@ wss.on("connection", (socket) => {
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
