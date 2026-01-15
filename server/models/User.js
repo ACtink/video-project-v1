@@ -32,14 +32,31 @@ const userSchema = new mongoose.Schema(
       maxlength: 150,
       default: "",
     },
+
+    // 🌍 COUNTRY (keep existing)
     country: {
-      type: String,
+      type: String, // ISO code like "IN", "US"
       required: true,
       trim: true,
     },
 
+    // ✅ OPTIONAL (recommended for future use)
+    countryCode: {
+      type: String,
+      trim: true,
+      minlength: 2,
+      maxlength: 2,
+    },
+
+    // 🚻 GENDER
+    gender: {
+      type: String,
+      enum: ["male", "female", "non_binary", "prefer_not_to_say"],
+      default: "prefer_not_to_say",
+    },
+
     profilePicture: {
-      type: String, // URL
+      type: String,
       default: "",
     },
 
@@ -49,7 +66,7 @@ const userSchema = new mongoose.Schema(
       min: 16,
     },
 
-    // SOCIAL GRAPH (Instagram-style)
+    // SOCIAL GRAPH
     followers: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -79,7 +96,7 @@ const userSchema = new mongoose.Schema(
       },
     ],
 
-    // ACCOUNT STATUS (future-ready)
+    // ACCOUNT STATUS
     isActive: {
       type: Boolean,
       default: true,
