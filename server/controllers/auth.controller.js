@@ -44,7 +44,7 @@ const joinHandler = async (req, res) => {
 
     // -------- Create new user --------
     const newUser = new User({
-      username,
+      username : username.toLowerCase(),
       email,
       password: hashedPassword,
       age,

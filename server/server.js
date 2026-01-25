@@ -25,11 +25,15 @@ const cors = require("cors");
 
 const authRoutes = require("./routes/auth.routes");
 const userRoutes = require("./routes/user.routes");
+const uploadRoutes = require("./routes/upload.routes");
 
 const chatRoutes = require("./routes/chat");
+const postRoutes = require("./routes/post.routes");
 
 
 const cookieParser = require("cookie-parser");
+
+
 
 
 
@@ -68,6 +72,15 @@ app.use(cookieParser());
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/chat", chatRoutes);
+
+
+
+
+
+
+app.use("/api/upload", uploadRoutes);
+
+app.use("/api/posts", postRoutes);
 
 
 

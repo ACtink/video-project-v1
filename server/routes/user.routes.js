@@ -7,13 +7,23 @@ const {
   getPublicProfile,
   blockUser,
   reportUser,
-  isFollowing, 
+  isFollowing,
+  getUsersByIds,
+  getProfileByUsername, 
 } = require("../controllers/user.controller");
 
 const authMiddleware = require("../middlewares/auth");
 
 // Public profile (no auth required)
 router.get("/:userId", getPublicProfile);
+
+router.get("/profile/:username", authMiddleware , getProfileByUsername );
+
+
+router.post("/by-ids", authMiddleware, getUsersByIds);
+
+
+
 
 // Social actions (auth required)
 router.post("/:userId/follow", authMiddleware, followUser);

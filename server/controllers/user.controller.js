@@ -104,6 +104,38 @@ exports.getPublicProfile = async (req, res) => {
   }
 };
 
+
+
+exports.getProfileByUsername = async (req, res) => {
+  try {
+    const { username } = req.params;
+
+    const user = await User.findOne({
+      username: username.toLowerCase(),
+    }).select("username bio profilePicture followers following createdAt");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({
+      _id: user._id,
+      username: user.username,
+      bio: user.bio,
+      profilePicture: user.profilePicture,
+      followers: user.followers, // ids (for modal)
+      following: user.following, // ids (for modal)
+      followersCount: user.followers.length,
+      followingCount: user.following.length,
+      joinedAt: user.createdAt,
+    });
+  } catch (err) {
+    console.error("getPublicProfileByUsername error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+
 /**
  * BLOCK USER
  */
@@ -189,5 +221,36 @@ exports.isFollowing = async (req, res) => {
   } catch (err) {
     console.error("IS FOLLOWING ERROR:", err);
     return res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+
+
+
+exports.getUsersByIds = async (req, res) => {
+  try {
+    const { ids } = req.body;
+
+    // 🛑 Validation
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({
+        message: "ids must be a non-empty array",
+      });
+    }
+
+    // ✅ Fetch users
+    const users = await User.find({
+      _id: { $in: ids },
+    })
+      .select("_id username profilePicture")
+      .lean();
+
+    return res.status(200).json(users);
+  } catch (error) {
+    console.error("getUsersByIds error:", error);
+    return res.status(500).json({
+      message: "Failed to fetch users",
+    });
   }
 };

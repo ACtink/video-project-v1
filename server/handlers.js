@@ -316,6 +316,7 @@ async function handleChatMessage(socket, data) {
           message: {
             messageId,
             from: socket.chatUserId,
+            to: to,
             text,
             createdAt: saved.createdAt,
           },
