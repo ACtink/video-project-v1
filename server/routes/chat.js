@@ -32,7 +32,7 @@ router.get("/contacts", authMiddleware, async (req, res) => {
     // 3️⃣ Fetch chat-safe user data
     const users = await User.find({
       _id: { $in: mutualIds },
-    }).select("_id username avatar lastSeen");
+    }).select("_id username profilePicture lastSeen");
 
     res.status(200).json(users);
   } catch (err) {

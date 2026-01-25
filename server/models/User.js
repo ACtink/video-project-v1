@@ -57,7 +57,12 @@ const userSchema = new mongoose.Schema(
 
     profilePicture: {
       type: String,
-      default: "",
+      default: null,
+    },
+
+    avatarMeta: {
+      publicId: String,
+      blurHash: String,
     },
 
     age: {
@@ -102,7 +107,7 @@ const userSchema = new mongoose.Schema(
       default: true,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("User", userSchema);

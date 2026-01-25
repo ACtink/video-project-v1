@@ -5,6 +5,7 @@ const authMiddleware = require("../middlewares/auth");
 const fs = require("fs");
 const Post = require("../models/Post");
 const { uploadToS3 } = require("../utils/s3-upload");
+const User = require("../models/User");
 
 const upload = multer({
   dest: "temp/",
@@ -20,52 +21,57 @@ const upload = multer({
 
 
 
-
-router.post(
-  "/avatar",
+router.put(
+  "/profile-picture",
   authMiddleware,
-  upload.single("image"),
+  upload.single("profilePicture"), // ✅ MATCH FRONTEND
   async (req, res) => {
     try {
-      const userId = req.user.id;
+      const userId = req.user.id; // or req.user._id (both ok if normalized)
 
       if (!req.file) {
         return res.status(400).json({ error: "No image uploaded" });
       }
 
-      // 1️⃣ fetch user
+      // 1️⃣ Fetch user
       const user = await User.findById(userId);
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
 
-      const oldAvatarUrl = user.avatarUrl; // backup
+      const oldProfilePicture = user.profilePicture;
 
-      // 2️⃣ upload new avatar
-      const newAvatarUrl = await uploadToS3(req.file, {
+      // 2️⃣ Upload to S3
+      const newProfilePicture = await uploadToS3(req.file, {
         folder: "avatars",
-        filename: `user${userId}`,
+        filename: `user-${userId}`,
       });
 
-      // 3️⃣ commit
-      user.avatarUrl = newAvatarUrl;
+      // 3️⃣ Save new profile picture
+      user.profilePicture = newProfilePicture;
       await user.save();
 
-      // 4️⃣ optional: delete old avatar from S3
-      // (do this async / best-effort)
-      // await deleteFromS3(oldAvatarUrl);
+      // 4️⃣ (Optional) delete old avatar async
+      // deleteFromS3(oldProfilePicture).catch(console.error);
 
-      res.status(200).json({ avatarUrl: newAvatarUrl });
+      // ✅ RETURN UPDATED USER (frontend needs this)
+     res.status(200).json({
+       _id: user._id,
+       username: user.username,
+       email: user.email,
+       country: user.country,
+       profilePicture: user.profilePicture,
+       followers: user.followers,
+       following: user.following,
+     });
+
     } catch (error) {
-      console.error("Avatar upload error:", error);
-      res.status(500).json({ error: "Failed to upload avatar" });
-    } finally {
-      if (req.file?.path && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
+      console.error("Profile picture upload error:", error);
+      res.status(500).json({ error: "Failed to upload profile picture" });
     }
   },
 );
+
 
 
 

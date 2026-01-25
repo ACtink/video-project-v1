@@ -25,7 +25,7 @@ router.get("/profile", authMiddleware, async (req, res) => {
 
     console.log("REQ.USER:", req.user);
     const user = await User.findById(req.user.id).select(
-      "_id username email country avatar followers following"
+      "_id username email country profilePicture followers following"
     );
 
     console.log("USER PROFILE-------------->:", user);
