@@ -133,14 +133,13 @@ const loginHandler = async (req, res) => {
     // });
 
 
-    res.cookie("token", token, {
-      httpOnly: true,
-      // secure: false, // localhost
-      secure: true, // localhost
+   res.cookie("token", token, {
+     httpOnly: true, // JS cannot read it (security)
+     secure: true, // REQUIRED for SameSite=None
+     sameSite: "none", // REQUIRED for cross-site cookies
+     maxAge: 7 * 24 * 60 * 60 * 1000,
+   });
 
-      sameSite: "none", // allow cross-port
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
 
     // -------- Success response --------
    return res.status(200).json({

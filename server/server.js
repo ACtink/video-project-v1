@@ -52,15 +52,25 @@ const app = express();
 
 
 // ---------- Middleware ----------
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://boomless-plushed-paisley.ngrok-free.dev",
+  "https://video-project-v1-frontend-app.onrender.com",
+];
+
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "https://boomless-plushed-paisley.ngrok-free.dev",
-    ],
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
-  })
+  }),
 );
+
 
 
 app.use(express.json());
