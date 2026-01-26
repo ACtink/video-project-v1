@@ -6,6 +6,7 @@ const fs = require("fs");
 const Post = require("../models/Post");
 const { uploadToS3 } = require("../utils/s3-upload");
 const User = require("../models/User");
+const { deleteFromS3 } = require("../utils/s3-delete");
 
 const upload = multer({
   dest: "temp/",
@@ -71,6 +72,45 @@ router.put(
     }
   },
 );
+
+
+router.delete("/profile-picture", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // 🚫 If already removed
+    if (!user.profilePicture) {
+      return res.status(400).json({ error: "No profile picture to remove" });
+    }
+
+    /* 
+      OPTIONAL: delete from cloud storage here
+      Example:
+      await deleteFromS3(user.profilePicture);
+      await deleteFromCloudinary(user.profilePicture);
+    */
+
+    // ✅ Remove profile picture
+
+    await deleteFromS3(user.profilePicture);
+    user.profilePicture = null;
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: "Profile picture removed successfully",
+    });
+  } catch (err) {
+    console.error("Remove profile picture error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+})
 
 
 

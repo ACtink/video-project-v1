@@ -290,6 +290,7 @@ async function handleChatMessage(socket, data) {
   try {
     // 1️⃣ Save message
     const saved = await Message.create({
+      messageId,  
       senderId: socket.chatUserId,
       receiverId: to,
       text,

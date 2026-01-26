@@ -16,6 +16,13 @@ const messageSchema = new mongoose.Schema(
       index: true,
     },
 
+    messageId: {
+  type: String,
+  required: true,
+  unique: true,
+}
+,
+
     text: {
       type: String,
       required: true,

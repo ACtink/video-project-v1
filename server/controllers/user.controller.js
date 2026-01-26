@@ -192,7 +192,6 @@ exports.reportUser = async (req, res) => {
 
 
 
-
 /**
  * CHECK IF LOGGED-IN USER IS FOLLOWING TARGET USER
  * GET /api/users/:userId/is-following
