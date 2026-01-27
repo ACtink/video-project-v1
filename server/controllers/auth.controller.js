@@ -133,12 +133,31 @@ const loginHandler = async (req, res) => {
     // });
 
 
-   res.cookie("token", token, {
-     httpOnly: true, // JS cannot read it (security)
-     secure: true, // REQUIRED for SameSite=None
-     sameSite: "none", // REQUIRED for cross-site cookies
-     maxAge: 7 * 24 * 60 * 60 * 1000,
-   });
+  //  res.cookie("token", token, {
+  //    httpOnly: true, // JS cannot read it (security)
+  //    secure: true, // REQUIRED for SameSite=None
+  //    sameSite: "none", // REQUIRED for cross-site cookies
+  //    maxAge: 7 * 24 * 60 * 60 * 1000,
+  //  });
+const isProd = process.env.NODE_ENV === "production";
+
+res.cookie("token", token, {
+  httpOnly: true,
+
+  secure: isProd, // prod → true, dev → false
+
+  sameSite: isProd
+    ? "lax" // prod (subdomain safe)
+    : "lax", // dev (localhost safe)
+
+  domain: isProd
+    ? ".weblinkup.online" // prod only
+    : undefined, // dev → DO NOT set domain
+
+  path: "/",
+
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+});
 
 
     // -------- Success response --------
@@ -164,11 +183,17 @@ const loginHandler = async (req, res) => {
 
 const logoutHandler = (req, res) => {
   try {
+    // res.clearCookie("token", {
+    //   httpOnly: true,
+    //   // secure: process.env.NODE_ENV === "production",
+    //   secure: true,
+    //   sameSite: "none", // must match login cookie
+    // });
+
     res.clearCookie("token", {
-      httpOnly: true,
-      // secure: process.env.NODE_ENV === "production",
-      secure: true,
-      sameSite: "none", // must match login cookie
+      path: "/",
+      domain:
+        process.env.NODE_ENV === "production" ? ".weblinkup.online" : undefined,
     });
 
     return res.status(200).json({
