@@ -69,7 +69,7 @@ router.get("/user/:userId", authMiddleware, async (req, res) => {
       .sort({ createdAt: -1 })
       .select(
         "imageUrl caption likesCount commentsCount createdAt visibility"
-      )
+      ).populate("user", "username profilePicture postsCount")
       .lean();
 
     res.status(200).json(posts);

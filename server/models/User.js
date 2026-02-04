@@ -71,6 +71,11 @@ const userSchema = new mongoose.Schema(
       min: 16,
     },
 
+    postsCount: {
+      type: Number,
+      default: 0,
+    },
+
     // SOCIAL GRAPH
     followers: [
       {

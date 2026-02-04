@@ -121,6 +121,7 @@ exports.getProfileByUsername = async (req, res) => {
     res.status(200).json({
       _id: user._id,
       username: user.username,
+      postsCount: user.postsCount,
       bio: user.bio,
       profilePicture: user.profilePicture,
       followers: user.followers, // ids (for modal)

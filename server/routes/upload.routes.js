@@ -145,7 +145,16 @@ router.post(
 
       // 3️⃣ Update post with image URL
       post.imageUrl = imageUrl;
+
+
+     
+
       await post.save();
+
+      
+    await User.findByIdAndUpdate(userId, {
+       $inc: { postsCount: 1 },
+         });
 
       res.status(201).json(post);
     } catch (error) {
