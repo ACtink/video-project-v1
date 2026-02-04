@@ -1,13 +1,17 @@
-name: Deploy to EC2
+name: Deploy Backend
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger EC2 webhook
-        run: curl -X POST ${{ secrets.WEBHOOK_URL }}
+      - name: Trigger backend deploy
+        run: |
+          curl -X POST \
+          -H "X-Commit-Sha: ${{ github.sha }}" \
+          -H "X-Commit-Message: ${{ github.event.head_commit.message }}" \
+          ${{ secrets.BACKEND_WEBHOOK }}
+
