@@ -23,12 +23,12 @@ const User = require("../models/User");
 router.get("/profile", authMiddleware, async (req, res) => {
   try {
 
-    console.log("REQ.USER:", req.user);
+    // console.log("REQ.USER:", req.user);
     const user = await User.findById(req.user.id).select(
       "_id username email country profilePicture followers following"
     );
 
-    console.log("USER PROFILE-------------->:", user);
+    // console.log("USER PROFILE-------------->:", user);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }

@@ -25,9 +25,9 @@ function handleConnection(socket, wss) {
 
 
   console.log("New client connected:", socket.id);
-  console.log("Total connected clients:", wss.clients.size);
+  console.log("Total connected clients:--------->", wss.clients.size);
   console.log("Current active pairs:", activePairs);
-    console.log("Total users in queue:", usersQueue.length);
+    console.log("Total users in queue:------------------------>", usersQueue.length);
 
 
 
@@ -60,6 +60,7 @@ function handleMessage(socket, msg) {
 
   /* ================= CHAT MESSAGE ================= */
   if (data.type === "chat_message") {
+    console.log("Handling chat message...", data.text);
     return handleChatMessage(socket, data);
   }
 
@@ -200,9 +201,13 @@ function handleMessage(socket, msg) {
 
 
 
-function handleDisconnect(socket) {
+function handleDisconnect(socket, wss) {
   console.log("Client disconnected:", socket.id);
 
+  console.log(
+    "Total connected clients after disconnect:--------->",
+    wss.clients.size,
+  );
   // Remove from socket map
   sockets.delete(socket.id);
 

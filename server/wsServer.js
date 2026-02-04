@@ -49,7 +49,7 @@ function setupWebSocketServer(server) {
 
     // ---- CLOSE ----
     socket.on("close", () => {
-      handleDisconnect(socket);
+      handleDisconnect(socket, wss);
     });
 
     // ---- ERROR ----
