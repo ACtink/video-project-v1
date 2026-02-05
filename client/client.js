@@ -36,7 +36,7 @@ socket.onmessage = async (event) => {
       hideLoading();
       isCaller = message.role === "caller"; // ✔ only caller makes offer
       updateStatus("Matched! Initializing call...");
-      startWebRTC();
+      // startWebRTC();
       break;
 
     case "offer":

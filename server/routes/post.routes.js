@@ -4,18 +4,60 @@ const Post = require("../models/Post");
 const authMiddleware = require("../middlewares/auth");
 
 const mongoose = require("mongoose");
+const User = require("../models/User");
 
 
 // GET all posts (feed)
-router.get("/", async (req, res) => {
+// router.get("/", async (req, res) => {
+//   try {
+//     const posts = await Post.find({
+//       isDeleted: false,
+//       visibility: "public",
+//     })
+//       .populate("user", "username profilePicture") // fetch user data
+//       .sort({ createdAt: -1 })
+//       .limit(50); // protect backend
+
+//     res.status(200).json(posts);
+//   } catch (error) {
+//     console.error("Fetch posts error:", error);
+//     res.status(500).json({ error: "Failed to fetch posts" });
+//   }
+// });
+
+
+router.get("/", authMiddleware, async (req, res) => {
   try {
+    const loggedInUserId = req.user.id;
+
+    // 1️⃣ Fetch logged-in user's followers & following
+    const user = await User.findById(loggedInUserId).select(
+      "followers following",
+    );
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // 2️⃣ Create allowed users list
+    const allowedUsers = [
+      ...user.followers,
+      ...user.following,
+      loggedInUserId, // include your own posts
+    ];
+
+    // Remove duplicates
+    const uniqueAllowedUsers = [...new Set(allowedUsers.map(String))];
+
+    // 3️⃣ Fetch posts only from allowed users
     const posts = await Post.find({
+      user: { $in: uniqueAllowedUsers },
       isDeleted: false,
       visibility: "public",
     })
-      .populate("user", "username profilePicture") // fetch user data
+      .populate("user", "username profilePicture")
       .sort({ createdAt: -1 })
-      .limit(50); // protect backend
+      .limit(50);
 
     res.status(200).json(posts);
   } catch (error) {
