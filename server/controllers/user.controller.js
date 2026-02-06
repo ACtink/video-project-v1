@@ -112,7 +112,7 @@ exports.getProfileByUsername = async (req, res) => {
 
     const user = await User.findOne({
       username: username.toLowerCase(),
-    }).select("username bio profilePicture followers following createdAt");
+    }).select("username bio profilePicture followers following postsCount createdAt");
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -128,6 +128,7 @@ exports.getProfileByUsername = async (req, res) => {
       following: user.following, // ids (for modal)
       followersCount: user.followers.length,
       followingCount: user.following.length,
+      postsCount: user.postsCount,
       joinedAt: user.createdAt,
     });
   } catch (err) {
