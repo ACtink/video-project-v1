@@ -229,27 +229,66 @@ exports.isFollowing = async (req, res) => {
 
 
 
+// exports.getUsersByIds = async (req, res) => {
+//   try {
+//     const { ids } = req.body;
+
+//     // 🛑 Validation
+//     if (!Array.isArray(ids) || ids.length === 0) {
+//       return res.status(400).json({
+//         message: "ids must be a non-empty array",
+//       });
+//     }
+
+//     // ✅ Fetch users
+//     const users = await User.find({
+//       _id: { $in: ids },
+//     })
+//       .select("_id username profilePicture")
+//       .lean();
+
+//     return res.status(200).json(users);
+//   } catch (error) {
+//     console.error("getUsersByIds error:", error);
+//     return res.status(500).json({
+//       message: "Failed to fetch users",
+//     });
+//   }
+// };
+
 exports.getUsersByIds = async (req, res) => {
   try {
     const { ids } = req.body;
 
-    // 🛑 Validation
+    const myId = req.user.id; // ✅ logged in user id
+
     if (!Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({
         message: "ids must be a non-empty array",
       });
     }
 
-    // ✅ Fetch users
     const users = await User.find({
       _id: { $in: ids },
     })
-      .select("_id username profilePicture")
+      .select("_id username profilePicture followers")
       .lean();
 
-    return res.status(200).json(users);
+    // ✅ add isFollowing field
+    const usersWithFollowStatus = users.map((user) => ({
+      _id: user._id,
+      username: user.username,
+      profilePicture: user.profilePicture,
+
+      isFollowing: user.followers.some(
+        (followerId) => followerId.toString() === myId.toString(),
+      ),
+    }));
+
+    return res.status(200).json(usersWithFollowStatus);
   } catch (error) {
     console.error("getUsersByIds error:", error);
+
     return res.status(500).json({
       message: "Failed to fetch users",
     });

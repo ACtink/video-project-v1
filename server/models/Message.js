@@ -2,6 +2,22 @@ const mongoose = require("mongoose");
 
 const messageSchema = new mongoose.Schema(
   {
+    // Your UUID (keep this)
+    messageId: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+    },
+
+    // Conversation reference (IMPORTANT)
+    conversationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Conversation",
+      required: true,
+      index: true,
+    },
+
     senderId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -16,13 +32,6 @@ const messageSchema = new mongoose.Schema(
       index: true,
     },
 
-    messageId: {
-  type: String,
-  required: true,
-  unique: true,
-}
-,
-
     text: {
       type: String,
       required: true,
@@ -34,6 +43,7 @@ const messageSchema = new mongoose.Schema(
       type: String,
       enum: ["sent", "delivered", "read"],
       default: "sent",
+      index: true,
     },
 
     createdAt: {
@@ -44,7 +54,13 @@ const messageSchema = new mongoose.Schema(
   },
   {
     versionKey: false,
-  }
+  },
 );
+
+// CRITICAL for fast chat loading
+messageSchema.index({
+  conversationId: 1,
+  createdAt: 1,
+});
 
 module.exports = mongoose.model("Message", messageSchema);

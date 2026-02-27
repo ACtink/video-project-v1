@@ -5,6 +5,7 @@ const { matchTwoUsers } = require("../utility/utils.js");
 const { success } = require("zod");
 const jwt = require("jsonwebtoken");
 const Message = require("./models/Message");
+const Conversation = require("./models/Conversation");
 
 /* ======================================================
    WEBSOCKET EVENT HANDLERS
@@ -55,6 +56,7 @@ function handleMessage(socket, msg) {
 
   /* ================= CHAT AUTH ================= */
   if (data.type === "chat_auth") {
+    console.log("Handling chat auth... auth request received");
     return handleChatAuth(socket, data);
   }
 
@@ -269,6 +271,7 @@ function handleChatAuth(socket, req) {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+    console.log("Decoded JWT for chat auth:", decoded);
     socket.chatUserId = decoded.id;
     onlineChatUsers.set(decoded.id, socket);
 
@@ -284,7 +287,72 @@ function handleChatAuth(socket, req) {
 /* ======================================================
    CHAT MESSAGE HANDLER
 ====================================================== */
+// async function handleChatMessage(socket, data) {
+//   if (!socket.chatUserId) {
+//     console.warn("Unauthenticated chat message ignored");
+//     return;
+//   }
+
+//   const { messageId, to, text, createdAt } = data;
+
+//   try {
+//     // 1️⃣ Save message
+//     const saved = await Message.create({
+//       messageId,  
+//       senderId: socket.chatUserId,
+//       receiverId: to,
+//       text,
+//       createdAt: new Date(createdAt),
+//     });
+
+//     // 2️⃣ ACK sender (saved)
+//     socket.send(
+//       JSON.stringify({
+//         type: "ack",
+//         messageId,
+//         status: "sent",
+//       })
+//     );
+
+//     // 3️⃣ Deliver if receiver online
+//     const receiverSocket = onlineChatUsers.get(to);
+     
+
+//     if (receiverSocket && receiverSocket.readyState === 1) {
+//       receiverSocket.send(
+//         JSON.stringify({
+//           type: "chat_deliver",
+//           message: {
+//             messageId,
+//             from: socket.chatUserId,
+//             to: to,
+//             text,
+//             createdAt: saved.createdAt,
+//           },
+//         })
+//       );
+
+//       // 4️⃣ ACK delivered
+//       socket.send(
+//         JSON.stringify({
+//           type: "ack",
+//           messageId,
+//           status: "delivered",
+//         })
+//       );
+//     }
+//   } catch (err) {
+//     console.error("Chat message error:", err);
+//   }
+// }
+
+
+
+
+
+
 async function handleChatMessage(socket, data) {
+  console.log("ye socket hai socket:", socket.chatUserId);
   if (!socket.chatUserId) {
     console.warn("Unauthenticated chat message ignored");
     return;
@@ -292,61 +360,130 @@ async function handleChatMessage(socket, data) {
 
   const { messageId, to, text, createdAt } = data;
 
+  if (!messageId || !to || !text) {
+    console.warn("Invalid chat message payload");
+    return;
+  }
+
   try {
-    // 1️⃣ Save message
-    const saved = await Message.create({
-      messageId,  
-      senderId: socket.chatUserId,
-      receiverId: to,
-      text,
-      createdAt: new Date(createdAt),
+    const senderId = socket.chatUserId;
+    const receiverId = to;
+
+    // 1️⃣ Find existing conversation
+    let conversation = await Conversation.findOne({
+      participants: { $all: [senderId, receiverId] },
     });
 
-    // 2️⃣ ACK sender (saved)
+    // 2️⃣ Create conversation if not exists
+    if (!conversation) {
+      conversation = await Conversation.create({
+        participants: [senderId, receiverId],
+
+        requesterId: senderId,
+
+        status: "pending",
+
+        lastMessage: text,
+
+        lastMessageSenderId: senderId,
+
+        lastMessageAt: new Date(createdAt),
+      });
+    }
+
+    // 3️⃣ Save message
+    const savedMessage = await Message.create({
+      messageId,
+
+      conversationId: conversation._id,
+
+      senderId,
+
+      receiverId,
+
+      text,
+
+      createdAt: new Date(createdAt),
+
+      status: "sent",
+    });
+
+    // 4️⃣ Update conversation last message
+    await Conversation.updateOne(
+      { _id: conversation._id },
+
+      {
+        lastMessage: text,
+
+        lastMessageSenderId: senderId,
+
+        lastMessageAt: savedMessage.createdAt,
+      },
+    );
+
+    // 5️⃣ ACK sender (message saved)
     socket.send(
       JSON.stringify({
         type: "ack",
+
         messageId,
+
+        conversationId: conversation._id,
+
         status: "sent",
-      })
+      }),
     );
 
-    // 3️⃣ Deliver if receiver online
-    const receiverSocket = onlineChatUsers.get(to);
-     
+    // 6️⃣ Deliver message if receiver online
+    const receiverSocket = onlineChatUsers.get(receiverId.toString());
 
     if (receiverSocket && receiverSocket.readyState === 1) {
       receiverSocket.send(
         JSON.stringify({
           type: "chat_deliver",
+
           message: {
             messageId,
-            from: socket.chatUserId,
-            to: to,
+
+            conversationId: conversation._id,
+
+            from: senderId,
+
+            to: receiverId,
+
             text,
-            createdAt: saved.createdAt,
+
+            createdAt: savedMessage.createdAt,
+
+            status: "delivered",
           },
-        })
+        }),
       );
 
-      // 4️⃣ ACK delivered
+      // 7️⃣ Update message status → delivered
+      await Message.updateOne(
+        { messageId },
+
+        { status: "delivered" },
+      );
+
+      // 8️⃣ ACK sender (delivered)
       socket.send(
         JSON.stringify({
           type: "ack",
+
           messageId,
+
+          conversationId: conversation._id,
+
           status: "delivered",
-        })
+        }),
       );
     }
   } catch (err) {
-    console.error("Chat message error:", err);
+    console.error("handleChatMessage error:", err);
   }
 }
-
-
-
-
-
 
 
 

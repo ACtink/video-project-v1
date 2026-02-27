@@ -4,6 +4,7 @@ const express = require("express");
 const User = require("../models/User");
 const authMiddleware = require("../middlewares/auth");
 const Message = require("../models/Message");
+const Conversation = require("../models/Conversation");
 
 const router = express.Router();
 
@@ -67,4 +68,131 @@ router.get("/messages/:userId", authMiddleware, async (req, res) => {
   }
 });
 
+
+router.post(
+  "/start/:userId",
+  authMiddleware,
+  async function startConversation(req, res) {
+    try {
+      const senderId = req.user.id; // from auth middleware
+      const receiverId = req.params.userId;
+
+      if (!receiverId) {
+        return res.status(400).json({
+          error: "Receiver ID is required",
+        });
+      }
+      console.log("Starting conversation between:", senderId, receiverId);
+
+      if (senderId.toString() === receiverId.toString()) {
+        return res.status(400).json({
+          error: "Cannot start conversation with yourself",
+        });
+      }
+
+      // 1️⃣ Check if conversation already exists
+      let conversation = await Conversation.findOne({
+        participants: { $all: [senderId, receiverId] },
+      }).populate("participants", "username profilePicture");
+
+      // 2️⃣ If exists → return it
+      if (conversation) {
+        return res.json({
+          success: true,
+
+          conversation,
+        });
+      }
+
+      // 3️⃣ Else create new conversation
+      conversation = await Conversation.create({
+        participants: [senderId, receiverId],
+
+        requesterId: senderId,
+
+        status: "pending",
+
+        lastMessage: "",
+
+        lastMessageAt: new Date(),
+      });
+
+      // populate after creation
+      conversation = await conversation.populate(
+        "participants",
+        "username profilePicture",
+      );
+
+      // 4️⃣ Return new conversation
+      res.json({
+        success: true,
+
+        conversation,
+      });
+    } catch (err) {
+      console.error("startConversation error:", err);
+
+      res.status(500).json({
+        error: "Server error",
+      });
+    }
+  },
+);
+
+
+router.get(
+  "/conversations",
+
+  authMiddleware,
+
+  async function getConversations(req, res) {
+    try {
+      const myUserId = req.user.id;
+
+      const conversations = await Conversation.find({
+        participants: myUserId,
+      })
+
+        .sort({ lastMessageAt: -1 })
+
+        .populate("participants", "username profilePicture");
+
+      res.json(conversations);
+    } catch (err) {
+      console.error(err);
+
+      res.status(500).json({
+        error: "Server error",
+      });
+    }
+  },
+);
+
+
+
+router.get(
+  "/messages/:conversationId",
+  authMiddleware,
+  async function getMessages(req, res) {
+    try {
+      const conversationId = req.params.conversationId;
+
+      const messages = await Message.find({
+        conversationId,
+      }).sort({ createdAt: 1 });
+
+      res.json(messages);
+    } catch (err) {
+      console.error(err);
+
+      res.status(500).json({
+        error: "Server error",
+      });
+    }
+  },
+);
+
 module.exports = router;
+
+
+
