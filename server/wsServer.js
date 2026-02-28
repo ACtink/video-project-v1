@@ -20,15 +20,15 @@ function setupWebSocketServer(server) {
     });
 
     // ---- AUTH (early) ----
-    try {
-      handleChatAuth(socket, req);
-    } catch (err) {
-      socket.close(4001, "Unauthorized");
-      return;
-    }
+    // try {
+    //   handleChatAuth(socket, req);
+    // } catch (err) {
+    //   socket.close(4001, "Unauthorized");
+    //   return;
+    // }
 
     // ---- CONNECT ----
-    handleConnection(socket, wss);
+    handleConnection(socket, req, wss);
 
     // ---- MESSAGE ----
     socket.on("message", (data) => {

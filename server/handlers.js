@@ -18,32 +18,145 @@ const onlineChatUsers = new Map();
 
 
 
-function handleConnection(socket, wss) {
+// function handleConnection(socket, req, wss) {
+//   socket.id = uuidv4();
+//   socket.lastPartner = null;
+//   socket.chatUserId = null;
+
+
+
+//   console.log("New client connected:", socket.id);
+//   console.log("Total connected clients:--------->", wss.clients.size);
+//   console.log("Current active pairs:", activePairs);
+//     console.log("Total users in queue:------------------------>", usersQueue.length);
+
+
+
+//     try {
+//       const cookies = parseCookies(req.headers.cookie || "");
+
+//       const token = cookies.token;
+
+//       if (token) {
+//         const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+//         socket.chatUserId = decoded.id;
+
+//         onlineChatUsers.set(decoded.id, socket);
+
+//         console.log("Chat authenticated:", socket.chatUserId);
+//       }
+//     } catch (err) {
+//       console.log("Invalid token");
+//     }
+
+//   // Store socket
+//   sockets.set(socket.id, socket);
+
+
+//   socket.send(JSON.stringify({ type: "connected", id: socket.id }));
+
+//   // Add to queue
+//   // usersQueue.push(socket.id);
+
+//   // matchTwoUsers(); // try to match users
+// }
+
+
+function handleConnection(socket, req, wss) {
   socket.id = uuidv4();
+
   socket.lastPartner = null;
+
   socket.chatUserId = null;
 
-
-
   console.log("New client connected:", socket.id);
+
   console.log("Total connected clients:--------->", wss.clients.size);
+
   console.log("Current active pairs:", activePairs);
-    console.log("Total users in queue:------------------------>", usersQueue.length);
 
+  console.log(
+    "Total users in queue:------------------------>",
+    usersQueue.length,
+  );
 
+  /* ===============================
+     AUTHENTICATION (SAFE)
+  =============================== */
 
-  // Store socket
+  try {
+    const cookies = parseCookies(req.headers?.cookie || "");
+
+    const token = cookies?.token;
+
+    if (token) {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      socket.chatUserId = decoded.id;
+
+      /* ===============================
+         PREVENT MULTIPLE ACTIVE SOCKETS
+      =============================== */
+
+      const existingSocket = onlineChatUsers.get(decoded.id);
+
+      if (
+        existingSocket &&
+        existingSocket !== socket &&
+        existingSocket.readyState === 1
+      ) {
+        console.log("Closing old socket for user:", decoded.id);
+
+        existingSocket.close();
+      }
+
+      onlineChatUsers.set(decoded.id, socket);
+
+      console.log("Chat authenticated:", socket.chatUserId);
+    }
+  } catch (err) {
+    console.log("Invalid token");
+  }
+
+  /* ===============================
+     STORE SOCKET
+  =============================== */
+
   sockets.set(socket.id, socket);
 
+  /* ===============================
+     CLEANUP ON DISCONNECT
+  =============================== */
 
-  socket.send(JSON.stringify({ type: "connected", id: socket.id }));
+  socket.on("close", () => {
+    sockets.delete(socket.id);
 
-  // Add to queue
+    if (socket.chatUserId) {
+      onlineChatUsers.delete(socket.chatUserId);
+    }
+
+    console.log("Socket cleaned:", socket.id);
+  });
+
+  /* ===============================
+     SEND CONNECT ACK
+  =============================== */
+
+  if (socket.readyState === 1) {
+    socket.send(
+      JSON.stringify({
+        type: "connected",
+
+        id: socket.id,
+      }),
+    );
+  }
+
   // usersQueue.push(socket.id);
 
-  // matchTwoUsers(); // try to match users
+  // matchTwoUsers();
 }
-
 
 
 
@@ -55,10 +168,10 @@ function handleMessage(socket, msg) {
   console.log("Received message from", socket.id, ":", data.type);
 
   /* ================= CHAT AUTH ================= */
-  if (data.type === "chat_auth") {
-    console.log("Handling chat auth... auth request received");
-    return handleChatAuth(socket, data);
-  }
+  // if (data.type === "chat_auth") {
+  //   console.log("******************Handling chat auth... auth request received********************************");
+  //   return handleChatAuth(socket, data);
+  // }
 
   /* ================= CHAT MESSAGE ================= */
   if (data.type === "chat_message") {
@@ -259,28 +372,36 @@ function parseCookies(cookieHeader = "") {
 
 
 
-function handleChatAuth(socket, req) {
-  try {
-    const cookies = parseCookies(req.headers.cookie || "");
-    const token = cookies.token;
+// function handleChatAuth(socket, wss) {
+//   try {
+//     const cookies = parseCookies(req.headers.cookie || "");
+//     console.log("Parsed cookies for chat auth:", cookies);
+//     const token = cookies.token;
 
-    if (!token) {
-      // Not logged in → allow WebRTC only
-      return;
-    }
+//     if (!token) {
+//       // Not logged in → allow WebRTC only
+//       return;
+//     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    console.log("Decoded JWT for chat auth:", decoded);
-    socket.chatUserId = decoded.id;
-    onlineChatUsers.set(decoded.id, socket);
+//     if (token) {
+//       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    console.log("Chat authenticated via cookie:", socket.chatUserId);
-  } catch (err) {
-    console.error("Chat auth failed (invalid token)");
-    // ❌ Do NOT close socket — user may still use WebRTC
-  }
-}
+//           console.log("Decoded JWT for chat auth:", decoded);
+
+//       socket.chatUserId = decoded.id;
+
+//       onlineChatUsers.set(decoded.id, socket);
+
+//       console.log("Chat authenticated:", socket.chatUserId);
+//     }
+
+
+//   } catch (err) {
+//     console.error("Chat auth failed (invalid token)");
+//     // ❌ Do NOT close socket — user may still use WebRTC
+//   }
+// }
 
 
 
@@ -497,4 +618,4 @@ async function handleChatMessage(socket, data) {
 
 
 
-module.exports = { handleDisconnect, handleConnection , handleMessage , handleChatAuth };
+module.exports = { handleDisconnect, handleConnection , handleMessage  };

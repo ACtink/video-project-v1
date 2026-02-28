@@ -5,6 +5,7 @@ const authMiddleware = require("../middlewares/auth");
 
 const mongoose = require("mongoose");
 const User = require("../models/User");
+const { deleteFromS3 } = require("../utils/s3-delete");
 
 
 // GET all posts (feed)
@@ -118,6 +119,46 @@ router.get("/user/:userId", authMiddleware, async (req, res) => {
   } catch (err) {
     console.error("getPostsByUser error:", err);
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+
+
+router.delete("/:postId", authMiddleware, async function deletePost(req, res) {
+  try {
+    const postId = req.params.postId;
+
+    const userId = req.user.id; // from auth middleware
+
+    // Find post
+    const post = await Post.findById(postId);
+
+    if (!post) {
+      return res.status(404).json({
+        message: "Post not found",
+      });
+    }
+
+    // Ownership check
+    if (post.user.toString() !== userId) {
+      return res.status(403).json({
+        message: "Not authorized to delete this post",
+      });
+    }
+
+    await Post.findByIdAndDelete(postId);
+
+    await deleteFromS3(post.imageUrl);
+
+    res.json({
+      message: "Post deleted successfully",
+    });
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      message: "Server error",
+    });
   }
 });
 
