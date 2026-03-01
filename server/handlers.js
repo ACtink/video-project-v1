@@ -494,6 +494,7 @@ async function handleChatMessage(socket, data) {
     let conversation = await Conversation.findOne({
       participants: { $all: [senderId, receiverId] },
     });
+    console.log("Existing conversation found:", conversation);
 
     // 2️⃣ Create conversation if not exists
     if (!conversation) {
@@ -528,6 +529,7 @@ async function handleChatMessage(socket, data) {
 
       status: "sent",
     });
+    console.log("Message saved:", savedMessage);
 
     // 4️⃣ Update conversation last message
     await Conversation.updateOne(
@@ -541,6 +543,7 @@ async function handleChatMessage(socket, data) {
         lastMessageAt: savedMessage.createdAt,
       },
     );
+    console.log("Conversation updated with last message");
 
     // 5️⃣ ACK sender (message saved)
     socket.send(
