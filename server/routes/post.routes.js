@@ -27,9 +27,55 @@ const { deleteFromS3 } = require("../utils/s3-delete");
 // });
 
 
+// router.get("/", authMiddleware, async (req, res) => {
+//   try {
+//     const loggedInUserId = req.user.id;
+
+//     // 1️⃣ Fetch logged-in user's followers & following
+//     const user = await User.findById(loggedInUserId).select(
+//       "followers following",
+//     );
+
+//     if (!user) {
+//       return res.status(404).json({ error: "User not found" });
+//     }
+
+//     // 2️⃣ Create allowed users list
+//     const allowedUsers = [
+//       ...user.followers,
+//       ...user.following,
+//       loggedInUserId, // include your own posts
+//     ];
+
+//     // Remove duplicates
+//     const uniqueAllowedUsers = [...new Set(allowedUsers.map(String))];
+
+//     // 3️⃣ Fetch posts only from allowed users
+//     const posts = await Post.find({
+//       user: { $in: uniqueAllowedUsers },
+//       isDeleted: false,
+//       visibility: "public",
+//     })
+//       .populate("user", "username profilePicture")
+//       .sort({ createdAt: -1 })
+//       .limit(50);
+
+//     res.status(200).json(posts);
+//   } catch (error) {
+//     console.error("Fetch posts error:", error);
+//     res.status(500).json({ error: "Failed to fetch posts" });
+//   }
+// });
+
+
 router.get("/", authMiddleware, async (req, res) => {
   try {
     const loggedInUserId = req.user.id;
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    const skip = (page - 1) * limit;
 
     // 1️⃣ Fetch logged-in user's followers & following
     const user = await User.findById(loggedInUserId).select(
@@ -41,11 +87,7 @@ router.get("/", authMiddleware, async (req, res) => {
     }
 
     // 2️⃣ Create allowed users list
-    const allowedUsers = [
-      ...user.followers,
-      ...user.following,
-      loggedInUserId, // include your own posts
-    ];
+    const allowedUsers = [...user.followers, ...user.following, loggedInUserId];
 
     // Remove duplicates
     const uniqueAllowedUsers = [...new Set(allowedUsers.map(String))];
@@ -58,7 +100,8 @@ router.get("/", authMiddleware, async (req, res) => {
     })
       .populate("user", "username profilePicture")
       .sort({ createdAt: -1 })
-      .limit(50);
+      .skip(skip) // ✅ pagination
+      .limit(limit); // ✅ pagination
 
     res.status(200).json(posts);
   } catch (error) {
