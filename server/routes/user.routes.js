@@ -82,6 +82,8 @@ router.patch("/edit-profile", authMiddleware, editProfileLimiter, async (req, re
 
     await user.save();
 
+    console.log("user updated:", user);
+
     res.json(user);
   } catch (err) {
     console.error("Edit profile error:", err);
