@@ -49,7 +49,7 @@ const editProfileLimiter = rateLimit({
 
 router.patch("/edit-profile", authMiddleware, editProfileLimiter, async (req, res) => {
   try {
-    const { fullName, bio, country } = req.body;
+    const { fullName, bio } = req.body;
 
     const user = await User.findById(req.user.id).select("-password");
 
@@ -76,9 +76,7 @@ router.patch("/edit-profile", authMiddleware, editProfileLimiter, async (req, re
       user.bio = cleanBio;
     }
 
-    if (country !== undefined) {
-      user.country = country.trim();
-    }
+   
 
     await user.save();
 

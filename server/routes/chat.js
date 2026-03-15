@@ -321,6 +321,38 @@ router.get("/conversations", authMiddleware, async (req, res) => {
   }
 });
 
+
+
+router.delete(
+  "/conversations/:conversationId",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const myId = req.user.id;
+      const { conversationId } = req.params;
+
+      // make sure the user is actually a participant
+      const conversation = await Conversation.findOne({
+        _id: conversationId,
+        participants: myId,
+      });
+
+      if (!conversation) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+
+      await Conversation.findByIdAndDelete(conversationId);
+
+      await Message.deleteMany({ conversationId });
+      
+      res.json({ success: true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Server error" });
+    }
+  },
+);
+
 // ============================================================
 // GET MESSAGES BY CONVERSATION
 // ============================================================

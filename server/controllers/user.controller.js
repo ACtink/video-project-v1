@@ -93,6 +93,7 @@ exports.getPublicProfile = async (req, res) => {
     res.status(200).json({
       id: user._id,
       username: user.username,
+      fullName: user.fullName,
       bio: user.bio,
       profilePicture: user.profilePicture,
       followersCount: user.followers.length,
