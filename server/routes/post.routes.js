@@ -303,13 +303,41 @@ router.post("/:postId/comments", authMiddleware, async (req, res) => {
 });
 
 // DELETE /api/posts/:postId/comments/:commentId
+// router.delete(
+//   "/:postId/comments/:commentId",
+//   authMiddleware,
+//   async (req, res) => {
+//     try {
+//       const comment = await Comment.findOneAndUpdate(
+//         { _id: req.params.commentId, user: req.user.id },
+//         { isDeleted: true },
+//       );
+
+//       if (!comment) return res.status(404).json({ error: "Comment not found" });
+
+//       await Post.findByIdAndUpdate(req.params.postId, {
+//         $inc: { commentsCount: -1 },
+//       });
+
+//       res.json({ success: true });
+//     } catch (err) {
+//       console.error("Delete comment error:", err);
+//       res.status(500).json({ error: "Failed to delete comment" });
+//     }
+//   },
+// );
+
+
 router.delete(
   "/:postId/comments/:commentId",
   authMiddleware,
   async (req, res) => {
     try {
       const comment = await Comment.findOneAndUpdate(
-        { _id: req.params.commentId, user: req.user.id },
+        {
+          _id: new mongoose.Types.ObjectId(req.params.commentId),
+          user: new mongoose.Types.ObjectId(req.user.id),
+        },
         { isDeleted: true },
       );
 
