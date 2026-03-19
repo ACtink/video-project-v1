@@ -253,6 +253,7 @@ router.delete("/:postId", authMiddleware, async function deletePost(req, res) {
 
     await Post.findByIdAndDelete(postId);
     await deleteFromS3(post.imageUrl);
+    await User.findByIdAndUpdate(userId, { $inc: { postsCount: -1 } });
 
     res.json({ message: "Post deleted successfully" });
   } catch (err) {
