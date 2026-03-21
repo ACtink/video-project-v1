@@ -413,4 +413,35 @@ router.get("/messages/:conversationId", authMiddleware, async (req, res) => {
   }
 });
 
+
+
+
+// ============================================================
+// MARK MESSAGES AS READ
+// ============================================================
+router.patch("/conversations/:conversationId/read", authMiddleware, async (req, res) => {
+  try {
+    const myId = req.user.id;
+    const { conversationId } = req.params;
+
+    await Message.updateMany(
+      {
+        conversationId,
+        receiverId: myId,
+        status: { $in: ["sent", "delivered"] },
+      },
+      { $set: { status: "read" } }
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+
+
+
+
 module.exports = router;

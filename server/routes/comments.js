@@ -34,21 +34,42 @@ router.post("/:postId/comments", authMiddleware, async (req, res) => {
 });
 
 // DELETE /posts/:postId/comments/:commentId
-router.delete("/:postId/comments/:commentId", authMiddleware, async (req, res) => {
-  const comment = await Comment.findOneAndUpdate(
-    { _id: req.params.commentId, user: req.user._id },
-    { isDeleted: true },
-  );
+// router.delete("/:postId/comments/:commentId", authMiddleware, async (req, res) => {
+//   const comment = await Comment.findOneAndUpdate(
+//     { _id: req.params.commentId, user: req.user._id },
+//     { isDeleted: true },
+//   );
 
-  if (!comment)
-    return res
-      .status(404)
-      .json({ success: false, message: "Comment not found" });
+//   if (!comment)
+//     return res
+//       .status(404)
+//       .json({ success: false, message: "Comment not found" });
 
-  await Post.findByIdAndUpdate(req.params.postId, {
-    $inc: { commentsCount: -1 },
-  });
-  res.json({ success: true });
-});
+//   await Post.findByIdAndUpdate(req.params.postId, {
+//     $inc: { commentsCount: -1 },
+//   });
+//   res.json({ success: true });
+// });
+
+router.delete(
+  "/:postId/comments/:commentId",
+  authMiddleware,
+  async (req, res) => {
+    const comment = await Comment.findOneAndDelete({
+      _id: req.params.commentId,
+      user: req.user._id,
+    });
+
+    if (!comment)
+      return res
+        .status(404)
+        .json({ success: false, message: "Comment not found" });
+
+    await Post.findByIdAndUpdate(req.params.postId, {
+      $inc: { commentsCount: -1 },
+    });
+    res.json({ success: true });
+  },
+);
 
 module.exports = router;

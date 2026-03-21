@@ -6,6 +6,7 @@ const { success } = require("zod");
 const jwt = require("jsonwebtoken");
 const Message = require("./models/Message");
 const Conversation = require("./models/Conversation");
+const { default: mongoose } = require("mongoose");
 
 /* ======================================================
    WEBSOCKET EVENT HANDLERS
@@ -18,48 +19,7 @@ const onlineChatUsers = new Map();
 
 
 
-// function handleConnection(socket, req, wss) {
-//   socket.id = uuidv4();
-//   socket.lastPartner = null;
-//   socket.chatUserId = null;
 
-
-
-//   console.log("New client connected:", socket.id);
-//   console.log("Total connected clients:--------->", wss.clients.size);
-//   console.log("Current active pairs:", activePairs);
-//     console.log("Total users in queue:------------------------>", usersQueue.length);
-
-
-
-//     try {
-//       const cookies = parseCookies(req.headers.cookie || "");
-
-//       const token = cookies.token;
-
-//       if (token) {
-//         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-//         socket.chatUserId = decoded.id;
-
-//         onlineChatUsers.set(decoded.id, socket);
-
-//         console.log("Chat authenticated:", socket.chatUserId);
-//       }
-//     } catch (err) {
-//       console.log("Invalid token");
-//     }
-
-//   // Store socket
-//   sockets.set(socket.id, socket);
-
-
-//   socket.send(JSON.stringify({ type: "connected", id: socket.id }));
-
-//   // Add to queue
-//   // usersQueue.push(socket.id);
-
-//   // matchTwoUsers(); // try to match users
 // }
 
 
@@ -179,6 +139,12 @@ function handleMessage(socket, msg) {
     return handleChatMessage(socket, data);
   }
 
+  // ── READ RECEIPTS ──────────────────────────────────────
+  if (data.type === "read") {
+    return handleReadReceipt(socket, data);
+  }
+  // ───────────────────────────────────────────────────────
+
   if (data.type === "join-queue") {
     usersQueue.push(socket.id);
     console.log("*******total users in queue:******", usersQueue.length);
@@ -218,7 +184,7 @@ function handleMessage(socket, msg) {
         JSON.stringify({
           type: "queued_and_searching_next_for_you",
           success: "ok",
-        })
+        }),
       );
     }
 
@@ -243,7 +209,7 @@ function handleMessage(socket, msg) {
           type: "successfully_ended_call",
           reason: "You ended Call",
           success: "ok",
-        })
+        }),
       );
     }
 
@@ -269,7 +235,7 @@ function handleMessage(socket, msg) {
         JSON.stringify({
           type: "queued_and_searching_next_for_you",
           success: "ok",
-        })
+        }),
       );
     }
 
@@ -283,7 +249,7 @@ function handleMessage(socket, msg) {
       JSON.stringify({
         type: "queued_and_searching_next_for_you",
         success: "ok",
-      })
+      }),
     );
 
     // userA.send(JSON.stringify({ type: "force-disconnect" , reason: "searchingNextForYou"}));
@@ -304,7 +270,7 @@ function handleMessage(socket, msg) {
         offer: data.offer,
         answer: data.answer,
         candidate: data.candidate,
-      })
+      }),
     );
   }
 }
@@ -369,105 +335,6 @@ function parseCookies(cookieHeader = "") {
   });
   return cookies;
 }
-
-
-
-// function handleChatAuth(socket, wss) {
-//   try {
-//     const cookies = parseCookies(req.headers.cookie || "");
-//     console.log("Parsed cookies for chat auth:", cookies);
-//     const token = cookies.token;
-
-//     if (!token) {
-//       // Not logged in → allow WebRTC only
-//       return;
-//     }
-
-
-//     if (token) {
-//       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-//           console.log("Decoded JWT for chat auth:", decoded);
-
-//       socket.chatUserId = decoded.id;
-
-//       onlineChatUsers.set(decoded.id, socket);
-
-//       console.log("Chat authenticated:", socket.chatUserId);
-//     }
-
-
-//   } catch (err) {
-//     console.error("Chat auth failed (invalid token)");
-//     // ❌ Do NOT close socket — user may still use WebRTC
-//   }
-// }
-
-
-
-/* ======================================================
-   CHAT MESSAGE HANDLER
-====================================================== */
-// async function handleChatMessage(socket, data) {
-//   if (!socket.chatUserId) {
-//     console.warn("Unauthenticated chat message ignored");
-//     return;
-//   }
-
-//   const { messageId, to, text, createdAt } = data;
-
-//   try {
-//     // 1️⃣ Save message
-//     const saved = await Message.create({
-//       messageId,  
-//       senderId: socket.chatUserId,
-//       receiverId: to,
-//       text,
-//       createdAt: new Date(createdAt),
-//     });
-
-//     // 2️⃣ ACK sender (saved)
-//     socket.send(
-//       JSON.stringify({
-//         type: "ack",
-//         messageId,
-//         status: "sent",
-//       })
-//     );
-
-//     // 3️⃣ Deliver if receiver online
-//     const receiverSocket = onlineChatUsers.get(to);
-     
-
-//     if (receiverSocket && receiverSocket.readyState === 1) {
-//       receiverSocket.send(
-//         JSON.stringify({
-//           type: "chat_deliver",
-//           message: {
-//             messageId,
-//             from: socket.chatUserId,
-//             to: to,
-//             text,
-//             createdAt: saved.createdAt,
-//           },
-//         })
-//       );
-
-//       // 4️⃣ ACK delivered
-//       socket.send(
-//         JSON.stringify({
-//           type: "ack",
-//           messageId,
-//           status: "delivered",
-//         })
-//       );
-//     }
-//   } catch (err) {
-//     console.error("Chat message error:", err);
-//   }
-// }
-
-
 
 
 
@@ -612,13 +479,110 @@ async function handleChatMessage(socket, data) {
 
 
 
+// async function handleReadReceipt(socket, data) {
+//   if (!socket.chatUserId) return;
+
+//   const { conversationId } = data;
+//   if (!conversationId) return;
+
+//   try {
+//     const receiverId = socket.chatUserId;
+
+//     // find all unread messages in this conversation sent to this user
+//     const unreadMessages = await Message.find({
+//       conversationId,
+//       receiverId,
+//       status: { $in: ["sent", "delivered"] },
+//     });
+
+//     if (unreadMessages.length === 0) return;
+
+//     // mark them all as read in DB
+//     await Message.updateMany(
+//       { conversationId, receiverId, status: { $in: ["sent", "delivered"] } },
+//       { $set: { status: "read" } },
+//     );
+
+//     // notify the sender for each message
+//     for (const msg of unreadMessages) {
+//       const senderSocket = onlineChatUsers.get(msg.senderId.toString());
+//       if (senderSocket && senderSocket.readyState === WebSocket.OPEN) {
+//       senderSocket.send(
+//         JSON.stringify({
+//           type: "read_ack",
+//           messageId: msg.messageId,
+//           conversationId: msg.conversationId.toString(),
+//           status: "read",
+//         }),
+//       );
+//       }
+//     }
+//   } catch (err) {
+//     console.error("handleReadReceipt error:", err);
+//   }
+// }
+
+
+async function handleReadReceipt(socket, data) {
+  if (!socket.chatUserId) return;
+
+  const { conversationId } = data;
+  if (!conversationId) return;
+
+  console.log("handleReadReceipt called:", {
+    conversationId,
+    receiverId: socket.chatUserId,
+  });
+
+  try {
+    const receiverId = new mongoose.Types.ObjectId(socket.chatUserId); // ← convert to ObjectId
+
+    const unreadMessages = await Message.find({
+      conversationId: new mongoose.Types.ObjectId(conversationId), // ← convert to ObjectId
+      receiverId,
+      status: { $in: ["sent", "delivered"] },
+    });
+
+    console.log("Unread messages found:", unreadMessages.length);
+
+    if (unreadMessages.length === 0) return;
+
+    await Message.updateMany(
+      {
+        conversationId: new mongoose.Types.ObjectId(conversationId),
+        receiverId,
+        status: { $in: ["sent", "delivered"] },
+      },
+      { $set: { status: "read" } },
+    );
+
+    for (const msg of unreadMessages) {
+      const senderSocket = onlineChatUsers.get(msg.senderId.toString());
+      console.log(
+        "Notifying sender:",
+        msg.senderId.toString(),
+        "socket found:",
+        !!senderSocket,
+      );
+      if (senderSocket && senderSocket.readyState === WebSocket.OPEN) {
+        senderSocket.send(
+          JSON.stringify({
+            type: "read_ack",
+            messageId: msg.messageId,
+            conversationId: msg.conversationId.toString(),
+            status: "read",
+          }),
+        );
+      }
+    }
+  } catch (err) {
+    console.error("handleReadReceipt error:", err);
+  }
+}
 
 
 
 
 
 
-
-
-
-module.exports = { handleDisconnect, handleConnection , handleMessage  };
+module.exports = { handleDisconnect, handleConnection, handleMessage };

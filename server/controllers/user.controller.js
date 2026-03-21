@@ -113,7 +113,7 @@ exports.getProfileByUsername = async (req, res) => {
 
     const user = await User.findOne({
       username: username.toLowerCase(),
-    }).select("username bio profilePicture followers following postsCount createdAt");
+    }).select("username bio profilePicture followers following postsCount fullName createdAt");
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -122,6 +122,7 @@ exports.getProfileByUsername = async (req, res) => {
     res.status(200).json({
       _id: user._id,
       username: user.username,
+      fullName: user.fullName,
       postsCount: user.postsCount,
       bio: user.bio,
       profilePicture: user.profilePicture,

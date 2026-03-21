@@ -344,9 +344,10 @@ router.delete(
 
       if (!comment) return res.status(404).json({ error: "Comment not found" });
 
-      await Post.findByIdAndUpdate(req.params.postId, {
-        $inc: { commentsCount: -1 },
-      });
+      await Post.findByIdAndUpdate(
+        { _id: req.params.postId, commentsCount: { $gt: 0 } }, // only decrement if > 0
+        { $inc: { commentsCount: -1 } },
+      );
 
       res.json({ success: true });
     } catch (err) {
@@ -355,5 +356,38 @@ router.delete(
     }
   },
 );
+
+
+router.post("/:postId/like", authMiddleware, async (req, res) => {
+  const userId = req.user.id;
+
+  const post = await Post.findOneAndUpdate(
+    { _id: req.params.postId, likes: { $ne: userId } },
+    {
+      $addToSet: { likes: userId },
+      $inc: { likesCount: 1 },
+    },
+    { new: true },
+  );
+
+  if (!post) {
+    const unliked = await Post.findOneAndUpdate(
+      { _id: req.params.postId, likes: userId },
+      {
+        $pull: { likes: userId },
+        $inc: { likesCount: -1 },
+      },
+      { new: true },
+    );
+
+    if (!unliked) return res.status(404).json({ error: "Post not found" });
+    return res.json({
+      liked: false,
+      likesCount: Math.max(0, unliked.likesCount),
+    });
+  }
+
+  res.json({ liked: true, likesCount: post.likesCount });
+});
 
 module.exports = router;

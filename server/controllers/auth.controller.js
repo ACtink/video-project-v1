@@ -1,6 +1,5 @@
 const bcrypt = require("bcrypt");
 const User = require("../models/User");
-const { treeifyError } = require("zod/v4/core");
 const { generateToken } = require("../utils/jwt");
 
 const joinHandler = async (req, res) => {
