@@ -113,10 +113,22 @@ exports.getProfileByUsername = async (req, res) => {
 
     const user = await User.findOne({
       username: username.toLowerCase(),
-    }).select("username bio profilePicture followers following postsCount fullName createdAt");
+    }).select(
+      "username bio profilePicture followers following postsCount fullName createdAt",
+    );
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
+    }
+
+    // ── Check if the logged-in user has blocked this profile ──
+    let isBlocked = false;
+    if (req.user?.id) {
+      const authUser = await User.findById(req.user.id).select("blockedUsers");
+      isBlocked =
+        authUser?.blockedUsers?.some(
+          (id) => id.toString() === user._id.toString(),
+        ) ?? false;
     }
 
     res.status(200).json({
@@ -126,20 +138,18 @@ exports.getProfileByUsername = async (req, res) => {
       postsCount: user.postsCount,
       bio: user.bio,
       profilePicture: user.profilePicture,
-      followers: user.followers, // ids (for modal)
-      following: user.following, // ids (for modal)
+      followers: user.followers,
+      following: user.following,
       followersCount: user.followers.length,
       followingCount: user.following.length,
-      postsCount: user.postsCount,
       joinedAt: user.createdAt,
+      isBlocked, // ← new field
     });
   } catch (err) {
     console.error("getPublicProfileByUsername error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
-
-
 /**
  * BLOCK USER
  */
@@ -149,6 +159,9 @@ exports.blockUser = async (req, res) => {
     const targetUserId = req.params.userId;
 
     const currentUser = await User.findById(currentUserId);
+    const targetUser = await User.findById(targetUserId);
+
+    if (!targetUser) return res.status(404).json({ message: "User not found" });
 
     if (currentUser.blockedUsers.includes(targetUserId)) {
       return res.status(400).json({ message: "User already blocked" });
@@ -156,22 +169,54 @@ exports.blockUser = async (req, res) => {
 
     currentUser.blockedUsers.push(targetUserId);
 
-    // Remove follow relationships
+    // Remove follow relationships both ways
     currentUser.following = currentUser.following.filter(
-      (id) => id.toString() !== targetUserId
+      (id) => id.toString() !== targetUserId,
     );
-
     currentUser.followers = currentUser.followers.filter(
-      (id) => id.toString() !== targetUserId
+      (id) => id.toString() !== targetUserId,
+    );
+    targetUser.following = targetUser.following.filter(
+      (id) => id.toString() !== currentUserId,
+    );
+    targetUser.followers = targetUser.followers.filter(
+      (id) => id.toString() !== currentUserId,
     );
 
     await currentUser.save();
+    await targetUser.save();
 
     res.status(200).json({ message: "User blocked successfully" });
   } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
+exports.unblockUser = async (req, res) => {
+  try {
+    const currentUserId = req.user.id;
+    const targetUserId = req.params.userId;
+
+    const currentUser = await User.findById(currentUserId);
+
+    if (!currentUser.blockedUsers.map(String).includes(String(targetUserId))) {
+      return res.status(400).json({ message: "User is not blocked" });
+    }
+
+    currentUser.blockedUsers = currentUser.blockedUsers.filter(
+      (id) => id.toString() !== targetUserId
+    );
+
+    await currentUser.save();
+
+    res.status(200).json({ message: "User unblocked successfully" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+
 
 /**
  * REPORT USER
@@ -261,38 +306,38 @@ exports.isFollowing = async (req, res) => {
 exports.getUsersByIds = async (req, res) => {
   try {
     const { ids } = req.body;
-
-    const myId = req.user.id; // ✅ logged in user id
+    const myId = req.user.id;
 
     if (!Array.isArray(ids) || ids.length === 0) {
-      return res.status(400).json({
-        message: "ids must be a non-empty array",
-      });
+      return res.status(400).json({ message: "ids must be a non-empty array" });
     }
 
-    const users = await User.find({
-      _id: { $in: ids },
-    })
-      .select("_id username profilePicture followers")
-      .lean();
+    // ── fetch current user's blocked list alongside the target users ──
+    const [users, me] = await Promise.all([
+      User.find({ _id: { $in: ids } })
+        .select("_id username profilePicture followers")
+        .lean(),
+      User.findById(myId).select("blockedUsers").lean(),
+    ]);
 
-    // ✅ add isFollowing field
+    const blockedSet = new Set(
+      (me?.blockedUsers || []).map((id) => id.toString()),
+    );
+
     const usersWithFollowStatus = users.map((user) => ({
       _id: user._id,
       username: user.username,
       profilePicture: user.profilePicture,
-
+      fullName: user.fullName,
       isFollowing: user.followers.some(
         (followerId) => followerId.toString() === myId.toString(),
       ),
+      isBlocked: blockedSet.has(user._id.toString()), // ← new field
     }));
 
     return res.status(200).json(usersWithFollowStatus);
   } catch (error) {
     console.error("getUsersByIds error:", error);
-
-    return res.status(500).json({
-      message: "Failed to fetch users",
-    });
+    return res.status(500).json({ message: "Failed to fetch users" });
   }
 };

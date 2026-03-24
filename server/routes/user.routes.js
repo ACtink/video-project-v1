@@ -114,6 +114,7 @@ const {
   isFollowing,
   getUsersByIds,
   getProfileByUsername,
+  unblockUser,
 } = require("../controllers/user.controller");
 
 const authMiddleware = require("../middlewares/auth");
@@ -179,6 +180,20 @@ router.post("/:userId/follow", authMiddleware, followUser);
 router.get("/:userId/is-following", authMiddleware, isFollowing);
 router.post("/:userId/unfollow", authMiddleware, unfollowUser);
 router.post("/:userId/block", authMiddleware, blockUser);
+router.post("/:userId/unblock", authMiddleware, unblockUser);
+
 router.post("/:userId/report", authMiddleware, reportUser);
+
+router.get("/:userId/block-status", authMiddleware, async (req, res) => {
+  try {
+    const currentUser = await User.findById(req.user.id).select("blockedUsers");
+    const isBlocked = currentUser.blockedUsers
+      .map(String)
+      .includes(String(req.params.userId));
+    res.json({ isBlocked });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
 module.exports = router;

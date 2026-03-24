@@ -112,6 +112,7 @@ const messageSchema = new mongoose.Schema(
       default: "sent",
       index: true,
     },
+    deletedFor: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
 
     createdAt: {
       type: Date,

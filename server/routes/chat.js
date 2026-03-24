@@ -383,9 +383,10 @@ router.get("/messages/:conversationId", authMiddleware, async (req, res) => {
 
     // pagination filter
 
-    const filter = {
-      conversationId,
-    };
+   const filter = {
+     conversationId,
+     deletedFor: { $ne: new mongoose.Types.ObjectId(myId) },
+   };
 
     if (cursor) {
       filter.createdAt = {
@@ -442,6 +443,30 @@ router.patch("/conversations/:conversationId/read", authMiddleware, async (req, 
 
 
 
+router.delete(
+  "/conversations/:conversationId/messages",
+  authMiddleware,
+  async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { conversationId } = req.params;
 
+    await Message.updateMany(
+      { conversationId },
+      { $addToSet: { deletedFor: userId } }
+    );
+
+    await Conversation.findByIdAndUpdate(conversationId, {
+      lastMessage: "",
+      lastMessageAt: new Date(),
+    });
+
+    res.status(200).json({ message: "Messages cleared" });
+  } catch (err) {
+    console.error("clearMessages error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+}
+);
 
 module.exports = router;
