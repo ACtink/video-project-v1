@@ -2619,3 +2619,56 @@ exports.getFollowing = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
+exports.directFollow = async (req, res) => {
+  try {
+    const currentUserId = req.user.id;
+    const targetUserId = req.params.userId;
+
+    if (currentUserId === targetUserId) {
+      return res.status(400).json({ message: "You cannot follow yourself" });
+    }
+
+    const [currentUser, targetUser] = await Promise.all([
+      User.findById(currentUserId),
+      User.findById(targetUserId),
+    ]);
+
+    if (!targetUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (
+      targetUser.blockedUsers.includes(currentUserId) ||
+      currentUser.blockedUsers.includes(targetUserId)
+    ) {
+      return res.status(403).json({ message: "Action not allowed" });
+    }
+
+    const alreadyFollowing = await Follow.exists({
+      follower: currentUserId,
+      following: targetUserId,
+    });
+    if (alreadyFollowing) {
+      return res.status(200).json({ followStatus: "following" });
+    }
+
+    // Skip request — directly create follow
+    await Follow.create({
+      follower: currentUserId,
+      following: targetUserId,
+    });
+
+    await Notification.create({
+      recipient: targetUserId,
+      sender: currentUserId,
+      type: "follow_accepted", // or a new type like "new_follower" if you want
+    });
+
+    res.status(200).json({ followStatus: "following" });
+  } catch (err) {
+    console.error("directFollow error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};

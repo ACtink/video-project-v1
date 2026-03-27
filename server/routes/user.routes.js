@@ -217,6 +217,7 @@ const {
   cancelFollowRequest,
   getFollowers, // ← new
   getFollowing, // ← new
+  directFollow, // ← new
 } = require("../controllers/user.controller");
 
 const authMiddleware = require("../middlewares/auth");
@@ -276,7 +277,7 @@ router.patch(
     }
   },
 );
-
+router.post("/:userId/direct-follow", authMiddleware, directFollow); // ← new route for direct follow without request
 // ── WILDCARD :userId routes ────────────────────────────────────────────────────
 router.get("/:userId", getPublicProfile);
 router.get("/:userId/is-following", authMiddleware, isFollowing);
