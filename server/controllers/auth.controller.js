@@ -207,9 +207,43 @@ const logoutHandler = (req, res) => {
   }
 };
 
+
+
+
+const googleCallbackHandler = (req, res) => {
+  try {
+    const user = req.user; // passport puts user here
+
+    const token = generateToken({
+      id: user._id,
+      username: user.username,
+      country: user.country,
+    });
+
+    const isProd = process.env.NODE_ENV === "production";
+
+    // Exact same cookie as your loginHandler
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: "lax",
+      domain: isProd ? ".weblinkup.online" : undefined,
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    // Redirect to frontend after login
+    res.redirect(`${process.env.CLIENT_URL}/`);
+  } catch (err) {
+    console.error("GOOGLE CALLBACK ERROR:", err);
+    res.redirect(`${process.env.CLIENT_URL}/login?error=google_failed`);
+  }
+};
+
+// add to exports
 module.exports = {
   joinHandler,
   loginHandler,
   logoutHandler,
+  googleCallbackHandler, // ✅ add this
 };
-
