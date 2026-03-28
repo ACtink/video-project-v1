@@ -197,10 +197,15 @@
 // module.exports = router;
 
 const express = require("express");
+
 const router = express.Router();
 
 const rateLimit = require("express-rate-limit");
+
 const sanitizeHtml = require("sanitize-html");
+
+const bcrypt = require("bcrypt");
+
 
 const {
   followUser,
@@ -222,6 +227,69 @@ const {
 
 const authMiddleware = require("../middlewares/auth");
 const User = require("../models/User");
+
+
+// ── GET /api/users/blocked ─────────────────────────────────────
+// Returns the list of users blocked by the logged-in user
+router.get("/blocked", authMiddleware, async (req, res) => {
+  try {
+
+    console.log("Fetching blocked users for user:", req.user.id);
+    const currentUser = await User.findById(req.user.id)
+      .populate("blockedUsers", "_id username fullName profilePicture")
+      .lean();
+
+    res.json(currentUser.blockedUsers || []);
+  } catch (err) {
+    console.error("Error fetching blocked users:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+
+
+// ── PATCH /api/users/change-password ──────────────────────────
+// Body: { currentPassword, newPassword }
+router.patch("/change-password", authMiddleware, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: "Both fields are required" });
+  }
+
+  if (newPassword.length < 8) {
+    return res
+      .status(400)
+      .json({ error: "New password must be at least 8 characters" });
+  }
+
+  try {
+    const user = await User.findById(req.user.id).select("+password");
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    // Verify current password — adjust to however you hash (bcrypt shown here)
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ error: "Current password is incorrect" });
+    }
+
+    if (currentPassword === newPassword) {
+      return res
+        .status(400)
+        .json({ error: "New password must be different from current" });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 12);
+    await user.save();
+
+    res.json({ message: "Password updated successfully" });
+  } catch (err) {
+    console.error("Error changing password:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+
 
 // ── SPECIFIC routes first (no :param ambiguity) ────────────────────────────────
 router.get("/profile/:username", authMiddleware, getProfileByUsername);
@@ -294,6 +362,14 @@ router.get("/:userId/block-status", authMiddleware, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
+
+
+
+
+
+
+
 
 router.post("/:userId/follow", authMiddleware, followUser);
 router.delete("/:userId/unfollow", authMiddleware, unfollowUser); // DELETE not POST

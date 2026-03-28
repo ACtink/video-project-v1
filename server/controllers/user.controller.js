@@ -2590,35 +2590,7 @@ exports.getUsersByIds = async (req, res) => {
   }
 };
 
-exports.getFollowers = async (req, res) => {
-  try {
-    const { userId } = req.params;
 
-    const follows = await Follow.find({ following: userId })
-      .populate("follower", "username profilePicture fullName")
-      .lean();
-
-    res.status(200).json(follows.map((f) => f.follower));
-  } catch (err) {
-    console.error("getFollowers error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-exports.getFollowing = async (req, res) => {
-  try {
-    const { userId } = req.params;
-
-    const follows = await Follow.find({ follower: userId })
-      .populate("following", "username profilePicture fullName")
-      .lean();
-
-    res.status(200).json(follows.map((f) => f.following));
-  } catch (err) {
-    console.error("getFollowing error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-};
 
 
 exports.directFollow = async (req, res) => {
@@ -2672,3 +2644,124 @@ exports.directFollow = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
+
+exports.getFollowers = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const currentUserId = req.user?.id; // available because route uses authMiddleware
+
+    const follows = await Follow.find({ following: userId })
+      .populate("follower", "username profilePicture fullName")
+      .lean();
+
+    const users = follows.map((f) => f.follower);
+
+    if (!currentUserId || users.length === 0) {
+      return res
+        .status(200)
+        .json(users.map((u) => ({ ...u, followStatus: "not_following" })));
+    }
+
+    const ids = users.map((u) => u._id.toString());
+
+    const [followedDocs, pendingDocs] = await Promise.all([
+      Follow.find({ follower: currentUserId, following: { $in: ids } })
+        .select("following")
+        .lean(),
+      FollowRequest.find({
+        from: currentUserId,
+        to: { $in: ids },
+        status: "pending",
+      })
+        .select("to")
+        .lean(),
+    ]);
+
+    const followingSet = new Set(
+      followedDocs.map((f) => f.following.toString()),
+    );
+    const requestedSet = new Set(pendingDocs.map((r) => r.to.toString()));
+
+    const result = users.map((u) => {
+      const uid = u._id.toString();
+      const isOwn = uid === currentUserId;
+      return {
+        ...u,
+        followStatus: isOwn
+          ? "owner"
+          : followingSet.has(uid)
+            ? "following"
+            : requestedSet.has(uid)
+              ? "requested"
+              : "not_following",
+      };
+    });
+
+    res.status(200).json(result);
+  } catch (err) {
+    console.error("getFollowers error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getFollowing = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const currentUserId = req.user?.id;
+
+    const follows = await Follow.find({ follower: userId })
+      .populate("following", "username profilePicture fullName")
+      .lean();
+
+    const users = follows.map((f) => f.following);
+
+    if (!currentUserId || users.length === 0) {
+      return res
+        .status(200)
+        .json(users.map((u) => ({ ...u, followStatus: "not_following" })));
+    }
+
+    const ids = users.map((u) => u._id.toString());
+
+    const [followedDocs, pendingDocs] = await Promise.all([
+      Follow.find({ follower: currentUserId, following: { $in: ids } })
+        .select("following")
+        .lean(),
+      FollowRequest.find({
+        from: currentUserId,
+        to: { $in: ids },
+        status: "pending",
+      })
+        .select("to")
+        .lean(),
+    ]);
+
+    const followingSet = new Set(
+      followedDocs.map((f) => f.following.toString()),
+    );
+    const requestedSet = new Set(pendingDocs.map((r) => r.to.toString()));
+
+    const result = users.map((u) => {
+      const uid = u._id.toString();
+      const isOwn = uid === currentUserId;
+      return {
+        ...u,
+        followStatus: isOwn
+          ? "owner"
+          : followingSet.has(uid)
+            ? "following"
+            : requestedSet.has(uid)
+              ? "requested"
+              : "not_following",
+      };
+    });
+
+    res.status(200).json(result);
+  } catch (err) {
+    console.error("getFollowing error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+ 
