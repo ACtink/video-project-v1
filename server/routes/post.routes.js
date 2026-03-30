@@ -385,9 +385,84 @@ const authMiddleware = require("../middlewares/auth");
 const mongoose = require("mongoose");
 const User = require("../models/User");
 const { deleteFromS3 } = require("../utils/s3-delete");
+const  NotInterested  = require("../models/NotInterested");
+const  Report  = require("../models/Report");
+
+// // ─── GET /api/posts — home feed ───────────────────────────────────────────────
+// // Shows posts from people the logged-in user follows + their own posts.
+// router.get("/", authMiddleware, async (req, res) => {
+//   try {
+//     const loggedInUserId = req.user.id;
+//     const page = parseInt(req.query.page) || 1;
+//     const limit = parseInt(req.query.limit) || 10;
+//     const skip = (page - 1) * limit;
+
+//     // Get all users the logged-in user follows from the Follow collection
+//     const following = await Follow.find({ follower: loggedInUserId })
+//       .select("following")
+//       .lean();
+
+//     const followingIds = following.map((f) => f.following.toString());
+
+//     // Feed = people I follow + myself
+//     const allowedUsers = [...new Set([...followingIds, loggedInUserId])];
+
+//     const posts = await Post.find({
+//       user: { $in: allowedUsers },
+//       isDeleted: false,
+//       visibility: "public",
+//     })
+//       .populate("user", "username profilePicture")
+//       .sort({ createdAt: -1 })
+//       .skip(skip)
+//       .limit(limit);
+
+//     res.status(200).json(posts);
+//   } catch (error) {
+//     console.error("Fetch posts error:", error);
+//     res.status(500).json({ error: "Failed to fetch posts" });
+//   }
+// });
+
+// GET /api/posts/not-interested — fetch all hidden posts for the user
+router.get("/not-interested", authMiddleware, async (req, res) => {
+  try {
+    const docs = await NotInterested.find({ user: req.user.id })
+      .populate({
+        path: "post",
+        select: "imageUrl caption user",
+        populate: { path: "user", select: "username profilePicture" },
+      })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Filter out any docs where the post was deleted
+    const posts = docs
+      .filter((d) => d.post)
+      .map((d) => d.post);
+
+    res.json(posts);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch hidden posts" });
+  }
+});
+
+// DELETE /api/posts/:id/not-interested — undo not interested
+router.delete("/:id/not-interested", authMiddleware, async (req, res) => {
+  try {
+    await NotInterested.findOneAndDelete({
+      user: req.user.id,
+      post: req.params.id,
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to restore post" });
+  }
+});
 
 // ─── GET /api/posts — home feed ───────────────────────────────────────────────
-// Shows posts from people the logged-in user follows + their own posts.
 router.get("/", authMiddleware, async (req, res) => {
   try {
     const loggedInUserId = req.user.id;
@@ -395,20 +470,21 @@ router.get("/", authMiddleware, async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    // Get all users the logged-in user follows from the Follow collection
-    const following = await Follow.find({ follower: loggedInUserId })
-      .select("following")
-      .lean();
+    // Run follow lookup + not-interested lookup in parallel
+    const [following, notInterestedDocs] = await Promise.all([
+      Follow.find({ follower: loggedInUserId }).select("following").lean(),
+      NotInterested.find({ user: loggedInUserId }).select("post").lean(),
+    ]);
 
     const followingIds = following.map((f) => f.following.toString());
-
-    // Feed = people I follow + myself
     const allowedUsers = [...new Set([...followingIds, loggedInUserId])];
+    const excludedPostIds = notInterestedDocs.map((n) => n.post);
 
     const posts = await Post.find({
       user: { $in: allowedUsers },
       isDeleted: false,
       visibility: "public",
+      _id: { $nin: excludedPostIds },      // ← exclude not-interested posts
     })
       .populate("user", "username profilePicture")
       .sort({ createdAt: -1 })
@@ -598,6 +674,54 @@ router.post("/:postId/like", authMiddleware, async (req, res) => {
   }
 
   res.json({ liked: true, likesCount: post.likesCount });
+});
+
+
+
+
+
+// POST /api/posts/:id/not-interested
+router.post("/:id/not-interested", authMiddleware, async (req, res) => {
+  try {
+    await NotInterested.findOneAndUpdate(
+      { user: req.user.id, post: req.params.id }, // ← .id not ._id
+      { user: req.user.id, post: req.params.id }, // ← .id not ._id
+      { upsert: true, new: true },
+    );
+    res.json({ success: true });
+  } catch (err) {
+    if (err.code === 11000) return res.json({ success: true });
+    res.status(500).json({ error: "Something went wrong" });
+  }
+});
+
+// POST /api/posts/:id/report
+router.post("/:id/report", authMiddleware, async (req, res) => {
+  const { reason } = req.body;
+  const VALID_REASONS = [
+    "Spam",
+    "Nudity or sexual activity",
+    "Hate speech or symbols",
+    "Violence or dangerous content",
+    "Harassment or bullying",
+    "False information",
+  ];
+
+  if (!VALID_REASONS.includes(reason)) {
+    return res.status(400).json({ error: "Invalid reason" });
+  }
+
+  try {
+    await Report.findOneAndUpdate(
+      { post: req.params.id, reportedBy: req.user.id },
+      { post: req.params.id, reportedBy: req.user.id, reason },
+      { upsert: true, new: true },
+    );
+    res.json({ success: true });
+  } catch (err) {
+    if (err.code === 11000) return res.json({ success: true }); // already reported
+    res.status(500).json({ error: "Something went wrong" });
+  }
 });
 
 module.exports = router;

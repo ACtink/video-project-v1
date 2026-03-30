@@ -256,6 +256,8 @@ const userSchema = new mongoose.Schema(
       },
     ],
 
+    isBanned: { type: Boolean, default: false },
+
     // ACCOUNT STATUS
     isActive: {
       type: Boolean,

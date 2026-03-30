@@ -1,5 +1,3 @@
-
-
 // const express = require("express");
 // const User = require("../models/User");
 // const authMiddleware = require("../middlewares/auth");
@@ -42,7 +40,6 @@
 //   }
 // });
 
-
 // /**
 //  * GET /api/chat/messages/:userId
 //  * Fetch chat messages between logged-in user and another user
@@ -67,7 +64,6 @@
 //     res.status(500).json({ message: "Server error" });
 //   }
 // });
-
 
 // router.post(
 //   "/start/:userId",
@@ -139,7 +135,6 @@
 //   },
 // );
 
-
 // router.get(
 //   "/conversations",
 
@@ -168,8 +163,6 @@
 //   },
 // );
 
-
-
 // router.get(
 //   "/messages/:conversationId",
 //   authMiddleware,
@@ -194,7 +187,273 @@
 
 // module.exports = router;
 
+// const express = require("express");
+// const mongoose = require("mongoose");
 
+// const User = require("../models/User");
+// const authMiddleware = require("../middlewares/auth");
+// const Message = require("../models/Message");
+// const Conversation = require("../models/Conversation");
+
+// const router = express.Router();
+
+// // ============================================================
+// // GET CONTACTS (mutual followers)
+// // ============================================================
+
+// router.get("/contacts", authMiddleware, async (req, res) => {
+//   try {
+//     const userId = req.user.id;
+
+//     const me = await User.findById(userId).select("followers following");
+
+//     if (!me) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+
+//     const mutualIds = me.following.filter((id) =>
+//       me.followers.includes(id.toString()),
+//     );
+
+//     if (!mutualIds.length) {
+//       return res.json([]);
+//     }
+
+//     const users = await User.find({
+//       _id: { $in: mutualIds },
+//     }).select("_id username profilePicture lastSeen");
+
+//     res.json(users);
+//   } catch (err) {
+//     console.error(err);
+
+//     res.status(500).json({
+//       message: "Server error",
+//     });
+//   }
+// });
+
+// // ============================================================
+// // START OR GET CONVERSATION
+// // ============================================================
+
+// router.post("/start/:userId", authMiddleware, async (req, res) => {
+//   try {
+//     const senderId = req.user.id;
+
+//     const receiverId = req.params.userId;
+
+//     if (senderId === receiverId) {
+//       return res.status(400).json({
+//         error: "Cannot chat with yourself",
+//       });
+//     }
+
+//     // FIND existing
+
+//     let conversation = await Conversation.findOne({
+//       participants: {
+//         $all: [senderId, receiverId],
+//       },
+//     }).populate("participants", "username profilePicture");
+
+//     // CREATE if not exists
+
+//     if (!conversation) {
+//       conversation = await Conversation.create({
+//         participants: [senderId, receiverId],
+
+//         requesterId: senderId,
+
+//         status: "accepted",
+
+//         lastMessage: "",
+//       });
+
+//       conversation = await conversation.populate(
+//         "participants",
+//         "username profilePicture",
+//       );
+//     }
+
+//     res.json(conversation);
+//   } catch (err) {
+//     console.error(err);
+
+//     res.status(500).json({
+//       error: "Server error",
+//     });
+//   }
+// });
+
+// // ============================================================
+// // GET CONVERSATION LIST
+// // ============================================================
+
+// router.get("/conversations", authMiddleware, async (req, res) => {
+//   try {
+//     const myId = req.user.id;
+
+//     const conversations = await Conversation.find({
+//       participants: myId,
+//     })
+
+//       .sort({ lastMessageAt: -1 })
+
+//       .populate("participants", "username profilePicture lastSeen");
+
+//     res.json(conversations);
+//   } catch (err) {
+//     console.error(err);
+
+//     res.status(500).json({
+//       error: "Server error",
+//     });
+//   }
+// });
+
+// router.delete(
+//   "/conversations/:conversationId",
+//   authMiddleware,
+//   async (req, res) => {
+//     try {
+//       const myId = req.user.id;
+//       const { conversationId } = req.params;
+
+//       // make sure the user is actually a participant
+//       const conversation = await Conversation.findOne({
+//         _id: conversationId,
+//         participants: myId,
+//       });
+
+//       if (!conversation) {
+//         return res.status(404).json({ error: "Conversation not found" });
+//       }
+
+//       await Conversation.findByIdAndDelete(conversationId);
+
+//       await Message.deleteMany({ conversationId });
+
+//       res.json({ success: true });
+//     } catch (err) {
+//       console.error(err);
+//       res.status(500).json({ error: "Server error" });
+//     }
+//   },
+// );
+
+// // ============================================================
+// // GET MESSAGES BY CONVERSATION
+// // ============================================================
+
+// router.get("/messages/:conversationId", authMiddleware, async (req, res) => {
+//   try {
+//     const myId = req.user.id;
+
+//     const { conversationId } = req.params;
+
+//     const { cursor } = req.query; // pagination
+
+//     // SECURITY: verify user is part of conversation
+
+//     const conversation = await Conversation.findOne({
+//       _id: conversationId,
+
+//       participants: myId,
+//     });
+
+//     console.log("Conversation found for messages:", conversation);
+
+//     if (!conversation) {
+//       return res.status(403).json({
+//         error: "Unauthorized",
+//       });
+//     }
+
+//     // pagination filter
+
+//    const filter = {
+//      conversationId,
+//      deletedFor: { $ne: new mongoose.Types.ObjectId(myId) },
+//    };
+
+//     if (cursor) {
+//       filter.createdAt = {
+//         $lt: new Date(cursor),
+//       };
+//     }
+
+//     const messages = await Message.find(filter)
+
+//       .sort({ createdAt: -1 })
+
+//       .limit(50)
+
+//       .select("messageId senderId receiverId text status createdAt");
+
+//       console.log("Messages fetched:", messages.length);
+
+//     res.json(messages.reverse());
+//   } catch (err) {
+//     console.error(err);
+
+//     res.status(500).json({
+//       error: "Server error",
+//     });
+//   }
+// });
+
+// // ============================================================
+// // MARK MESSAGES AS READ
+// // ============================================================
+// router.patch("/conversations/:conversationId/read", authMiddleware, async (req, res) => {
+//   try {
+//     const myId = req.user.id;
+//     const { conversationId } = req.params;
+
+//     await Message.updateMany(
+//       {
+//         conversationId,
+//         receiverId: myId,
+//         status: { $in: ["sent", "delivered"] },
+//       },
+//       { $set: { status: "read" } }
+//     );
+
+//     res.json({ success: true });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ error: "Server error" });
+//   }
+// });
+
+// router.delete(
+//   "/conversations/:conversationId/messages",
+//   authMiddleware,
+//   async (req, res) => {
+//   try {
+//     const userId = req.user.id;
+//     const { conversationId } = req.params;
+
+//     await Message.updateMany(
+//       { conversationId },
+//       { $addToSet: { deletedFor: userId } }
+//     );
+
+//     await Conversation.findByIdAndUpdate(conversationId, {
+//       lastMessage: "",
+//       lastMessageAt: new Date(),
+//     });
+
+//     res.status(200).json({ message: "Messages cleared" });
+//   } catch (err) {
+//     console.error("clearMessages error:", err);
+//     res.status(500).json({ message: "Server error" });
+//   }
+// }
+// );
+
+// module.exports = router;
 
 const express = require("express");
 const mongoose = require("mongoose");
@@ -235,10 +494,7 @@ router.get("/contacts", authMiddleware, async (req, res) => {
     res.json(users);
   } catch (err) {
     console.error(err);
-
-    res.status(500).json({
-      message: "Server error",
-    });
+    res.status(500).json({ message: "Server error" });
   }
 });
 
@@ -249,33 +505,21 @@ router.get("/contacts", authMiddleware, async (req, res) => {
 router.post("/start/:userId", authMiddleware, async (req, res) => {
   try {
     const senderId = req.user.id;
-
     const receiverId = req.params.userId;
 
     if (senderId === receiverId) {
-      return res.status(400).json({
-        error: "Cannot chat with yourself",
-      });
+      return res.status(400).json({ error: "Cannot chat with yourself" });
     }
 
-    // FIND existing
-
     let conversation = await Conversation.findOne({
-      participants: {
-        $all: [senderId, receiverId],
-      },
+      participants: { $all: [senderId, receiverId] },
     }).populate("participants", "username profilePicture");
-
-    // CREATE if not exists
 
     if (!conversation) {
       conversation = await Conversation.create({
         participants: [senderId, receiverId],
-
         requesterId: senderId,
-
         status: "accepted",
-
         lastMessage: "",
       });
 
@@ -288,40 +532,75 @@ router.post("/start/:userId", authMiddleware, async (req, res) => {
     res.json(conversation);
   } catch (err) {
     console.error(err);
-
-    res.status(500).json({
-      error: "Server error",
-    });
+    res.status(500).json({ error: "Server error" });
   }
 });
 
 // ============================================================
 // GET CONVERSATION LIST
+// Returns each conversation with an `unreadCount` field —
+// the number of messages sent TO the current user that are
+// still "sent" or "delivered" (i.e. not yet read).
+// This lets the client show offline unread badges immediately
+// on login without waiting for any live WebSocket activity.
 // ============================================================
 
 router.get("/conversations", authMiddleware, async (req, res) => {
   try {
-    const myId = req.user.id;
+    const myId = new mongoose.Types.ObjectId(req.user.id);
 
-    const conversations = await Conversation.find({
-      participants: myId,
-    })
-
+    const conversations = await Conversation.find({ participants: myId })
       .sort({ lastMessageAt: -1 })
+      .populate("participants", "username profilePicture lastSeen")
+      .lean(); // lean() so we can freely attach extra fields below
 
-      .populate("participants", "username profilePicture lastSeen");
+    if (!conversations.length) {
+      return res.json([]);
+    }
 
-    res.json(conversations);
+    // Single aggregation to get unread counts for all conversations at once.
+    // Never do a per-conversation countDocuments() in a loop — that's an N+1
+    // query and gets expensive fast.
+    const conversationIds = conversations.map((c) => c._id);
+
+    const unreadAgg = await Message.aggregate([
+      {
+        $match: {
+          conversationId: { $in: conversationIds },
+          receiverId: myId,
+          status: { $in: ["sent", "delivered"] },
+        },
+      },
+      {
+        $group: {
+          _id: "$conversationId",
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    // Build a lookup map: conversationId string → count
+    const unreadMap = {};
+    unreadAgg.forEach(({ _id, count }) => {
+      unreadMap[_id.toString()] = count;
+    });
+
+    // Attach unreadCount to each conversation object
+    const result = conversations.map((conv) => ({
+      ...conv,
+      unreadCount: unreadMap[conv._id.toString()] || 0,
+    }));
+
+    res.json(result);
   } catch (err) {
     console.error(err);
-
-    res.status(500).json({
-      error: "Server error",
-    });
+    res.status(500).json({ error: "Server error" });
   }
 });
 
-
+// ============================================================
+// DELETE CONVERSATION
+// ============================================================
 
 router.delete(
   "/conversations/:conversationId",
@@ -331,7 +610,6 @@ router.delete(
       const myId = req.user.id;
       const { conversationId } = req.params;
 
-      // make sure the user is actually a participant
       const conversation = await Conversation.findOne({
         _id: conversationId,
         participants: myId,
@@ -342,9 +620,8 @@ router.delete(
       }
 
       await Conversation.findByIdAndDelete(conversationId);
-
       await Message.deleteMany({ conversationId });
-      
+
       res.json({ success: true });
     } catch (err) {
       console.error(err);
@@ -360,113 +637,96 @@ router.delete(
 router.get("/messages/:conversationId", authMiddleware, async (req, res) => {
   try {
     const myId = req.user.id;
-
     const { conversationId } = req.params;
-
-    const { cursor } = req.query; // pagination
-
-    // SECURITY: verify user is part of conversation
+    const { cursor } = req.query;
 
     const conversation = await Conversation.findOne({
       _id: conversationId,
-
       participants: myId,
     });
 
-    console.log("Conversation found for messages:", conversation);
-
     if (!conversation) {
-      return res.status(403).json({
-        error: "Unauthorized",
-      });
+      return res.status(403).json({ error: "Unauthorized" });
     }
 
-    // pagination filter
-
-   const filter = {
-     conversationId,
-     deletedFor: { $ne: new mongoose.Types.ObjectId(myId) },
-   };
+    const filter = {
+      conversationId,
+      deletedFor: { $ne: new mongoose.Types.ObjectId(myId) },
+    };
 
     if (cursor) {
-      filter.createdAt = {
-        $lt: new Date(cursor),
-      };
+      filter.createdAt = { $lt: new Date(cursor) };
     }
 
     const messages = await Message.find(filter)
-
       .sort({ createdAt: -1 })
-
       .limit(50)
-
       .select("messageId senderId receiverId text status createdAt");
 
-      console.log("Messages fetched:", messages.length);
-
     res.json(messages.reverse());
-  } catch (err) {
-    console.error(err);
-
-    res.status(500).json({
-      error: "Server error",
-    });
-  }
-});
-
-
-
-
-// ============================================================
-// MARK MESSAGES AS READ
-// ============================================================
-router.patch("/conversations/:conversationId/read", authMiddleware, async (req, res) => {
-  try {
-    const myId = req.user.id;
-    const { conversationId } = req.params;
-
-    await Message.updateMany(
-      {
-        conversationId,
-        receiverId: myId,
-        status: { $in: ["sent", "delivered"] },
-      },
-      { $set: { status: "read" } }
-    );
-
-    res.json({ success: true });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
+// ============================================================
+// MARK MESSAGES AS READ
+// ============================================================
 
+router.patch(
+  "/conversations/:conversationId/read",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const myId = req.user.id;
+      const { conversationId } = req.params;
+
+      await Message.updateMany(
+        {
+          conversationId,
+          receiverId: myId,
+          status: { $in: ["sent", "delivered"] },
+        },
+        { $set: { status: "read" } },
+      );
+
+      res.json({ success: true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Server error" });
+    }
+  },
+);
+
+// ============================================================
+// CLEAR MESSAGES (soft delete for current user)
+// ============================================================
 
 router.delete(
   "/conversations/:conversationId/messages",
   authMiddleware,
   async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { conversationId } = req.params;
+    try {
+      const userId = req.user.id;
+      const { conversationId } = req.params;
 
-    await Message.updateMany(
-      { conversationId },
-      { $addToSet: { deletedFor: userId } }
-    );
+      await Message.updateMany(
+        { conversationId },
+        { $addToSet: { deletedFor: userId } },
+      );
 
-    await Conversation.findByIdAndUpdate(conversationId, {
-      lastMessage: "",
-      lastMessageAt: new Date(),
-    });
+      await Conversation.findByIdAndUpdate(conversationId, {
+        lastMessage: "",
+        lastMessageAt: new Date(),
+      });
 
-    res.status(200).json({ message: "Messages cleared" });
-  } catch (err) {
-    console.error("clearMessages error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-}
+      res.status(200).json({ message: "Messages cleared" });
+    } catch (err) {
+      console.error("clearMessages error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  },
 );
 
 module.exports = router;

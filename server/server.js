@@ -23,6 +23,7 @@ const postRoutes = require("./routes/post.routes");
 const notifyRoutes = require("./routes/notifications"); 
 const googleAuthRoutes = require("./routes/auth.routes");
 
+const adminRoutes = require("./routes/admin.routes.js");
 
 const authMiddleware = require("./middlewares/auth");
 const { setupWebSocketServer } = require("./wsServer");
@@ -66,6 +67,8 @@ app.use("/api/users", userRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/posts", postRoutes);
+app.use("/api/admin", adminRoutes);
+
 
 app.use("/api/notifications", notifyRoutes);
 /* -------------------- HEALTH -------------------- */
