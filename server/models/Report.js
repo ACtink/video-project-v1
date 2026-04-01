@@ -20,4 +20,6 @@ const reportSchema = new mongoose.Schema({
 
 reportSchema.index({ post: 1, reportedBy: 1 }, { unique: true });
 
+
+
 module.exports = mongoose.model("Report", reportSchema);
