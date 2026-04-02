@@ -969,6 +969,21 @@ const WS_OPEN = 1;
 
 const onlineChatUsers = new Map();
 
+function broadcastOnlineStatus(wss) {
+  const onlineUserIds = Array.from(onlineChatUsers.keys());
+  const message = JSON.stringify({
+    type: "online_users",
+    userIds: onlineUserIds,
+  });
+
+  wss.clients.forEach((client) => {
+    if (client.readyState === WS_OPEN) {
+      client.send(message);
+    }
+  });
+}
+
+
 function handleConnection(socket, req, wss) {
   socket.id = uuidv4();
   socket.lastPartner = null;
@@ -997,6 +1012,7 @@ function handleConnection(socket, req, wss) {
 
       onlineChatUsers.set(decoded.id, socket);
       console.log("Chat authenticated:", socket.chatUserId);
+      broadcastOnlineStatus(wss); // ← here
     }
   } catch (err) {
     console.log("Invalid token");
@@ -1008,6 +1024,7 @@ function handleConnection(socket, req, wss) {
     sockets.delete(socket.id);
     if (socket.chatUserId) {
       onlineChatUsers.delete(socket.chatUserId);
+      broadcastOnlineStatus(wss); // ← here
     }
     console.log("Socket cleaned:", socket.id);
   });

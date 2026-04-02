@@ -535,17 +535,39 @@ router.get("/user/:userId", authMiddleware, async (req, res) => {
       visibilityFilter = [{ visibility: "public" }];
     }
 
-    const posts = await Post.find({
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(50, parseInt(req.query.limit) || 12);
+    const skip = (page - 1) * limit;
+
+    const query = {
       user: userId,
       isDeleted: false,
       $or: visibilityFilter,
-    })
-      .sort({ createdAt: -1 })
-      .select("imageUrl caption likesCount commentsCount createdAt visibility")
-      .populate("user", "username profilePicture postsCount")
-      .lean();
+    };
 
-    res.status(200).json(posts);
+    const [total, posts] = await Promise.all([
+      Post.countDocuments(query),
+      Post.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .select(
+          "imageUrl caption likesCount commentsCount createdAt visibility",
+        )
+        .populate("user", "username profilePicture postsCount")
+        .lean(),
+    ]);
+
+    res.status(200).json({
+      posts,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasMore: page * limit < total,
+      },
+    });
   } catch (err) {
     console.error("getPostsByUser error:", err);
     res.status(500).json({ message: "Server error" });
@@ -717,11 +739,21 @@ router.post("/:id/report", authMiddleware, async (req, res) => {
       { post: req.params.id, reportedBy: req.user.id, reason },
       { upsert: true, new: true },
     );
+
+    // Add to NotInterested so the feed query excludes it automatically
+    await NotInterested.findOneAndUpdate(
+      { user: req.user.id, post: req.params.id },
+      { user: req.user.id, post: req.params.id },
+      { upsert: true },
+    );
+
     res.json({ success: true });
   } catch (err) {
-    if (err.code === 11000) return res.json({ success: true }); // already reported
+    if (err.code === 11000) return res.json({ success: true });
     res.status(500).json({ error: "Something went wrong" });
   }
 });
+
+
 
 module.exports = router;
