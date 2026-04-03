@@ -87,6 +87,7 @@ const {
   handleConnection,
   handleMessage,
   handleChatAuth,
+  startHeartbeat,
 } = require("./handlers");
 
 function setupWebSocketServer(server) {
@@ -99,12 +100,12 @@ function setupWebSocketServer(server) {
 
   wss.on("connection", (socket, req) => {
     // ---- INITIAL STATE ----
-    socket.isAlive = true;
+    // socket.isAlive = true;
 
-    // ---- PONG HANDLER ----
-    socket.on("pong", () => {
-      socket.isAlive = true;
-    });
+    // // ---- PONG HANDLER ----
+    // socket.on("pong", () => {
+    //   socket.isAlive = true;
+    // });
 
     // ---- AUTH (early) ----
     // TODO: Uncomment before going to production
@@ -147,21 +148,24 @@ function setupWebSocketServer(server) {
   });
 
   // ---- HEARTBEAT INTERVAL ----
-  const interval = setInterval(() => {
-    wss.clients.forEach((client) => {
-      if (client.isAlive === false) {
-        return client.terminate();
-      }
+  // const interval = setInterval(() => {
+  //   wss.clients.forEach((client) => {
+  //     if (client.isAlive === false) {
+  //       return client.terminate();
+  //     }
 
-      client.isAlive = false;
-      client.ping();
-    });
-  }, 30000);
+  //     client.isAlive = false;
+  //     client.ping();
+  //   });
+  // }, 30000);
 
-  // ---- CLEAN SHUTDOWN ----
-  wss.on("close", () => {
-    clearInterval(interval);
-  });
+  // // ---- CLEAN SHUTDOWN ----
+  // wss.on("close", () => {
+  //   clearInterval(interval);
+  // });
+
+  // ---- HEARTBEAT ----
+  startHeartbeat(wss);
 
   return wss;
 }
