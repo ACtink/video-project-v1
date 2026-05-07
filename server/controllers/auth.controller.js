@@ -1,6 +1,6 @@
 const bcrypt = require("bcrypt");
 const User = require("../models/User");
-const { generateToken } = require("../utils/jwt");
+const { generateToken , generateRefreshToken } = require("../utils/jwt");
 
 const joinHandler = async (req, res) => {
   try {
@@ -81,6 +81,101 @@ const joinHandler = async (req, res) => {
     });
   }
 };
+
+
+const mobileJoinHandler = async (req, res) => {
+  try {
+    const { username, email, password, age, country, termsAccepted } = req.body;
+
+    // -------- Check if user already exists --------
+    const existingUser = await User.findOne({
+      $or: [{ email }, { username }],
+    });
+
+    console.log("EXISTING USER:", existingUser);
+
+    if (existingUser?.username === username) {
+      return res.status(409).json({
+        message: "Username is already taken",
+        errors: ["Username is already taken"],
+      });
+    }
+
+    if (existingUser?.email === email) {
+      return res.status(409).json({
+        message: "Email is already registered",
+        errors: ["Email is already registered"],
+      });
+    }
+
+    if (existingUser?.username === username && existingUser?.email === email) {
+      return res.status(409).json({
+        message: "Username or email already exists",
+        errors: ["Username or email already exists"],
+      });
+    }
+
+    // -------- Hash password --------
+    const saltRounds = 10;
+
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // -------- Create user --------
+    const newUser = new User({
+      username: username.toLowerCase(),
+      email,
+      password: hashedPassword,
+      age,
+      country,
+      termsAccepted,
+    });
+
+    await newUser.save();
+
+    // -------- Generate tokens --------
+    const accessToken = generateToken({
+      id: newUser._id,
+      username: newUser.username,
+      country: newUser.country,
+    });
+
+    const refreshToken = generateRefreshToken({
+      id: newUser._id,
+    });
+
+    // -------- Success response --------
+    return res.status(201).json({
+      message: "User registered successfully",
+
+      accessToken,
+      refreshToken,
+
+      user: {
+        id: newUser._id,
+        username: newUser.username,
+        email: newUser.email,
+      },
+    });
+  } catch (err) {
+    console.error("MOBILE JOIN ERROR:", err);
+
+    // Duplicate key fallback
+    if (err.code === 11000) {
+      return res.status(409).json({
+        message: "Username or email already exists",
+        errors: ["Username or email already exists"],
+      });
+    }
+
+    return res.status(500).json({
+      message: "Internal server error",
+      errors: ["Internal server error"],
+    });
+  }
+};
+
+
+
 
 const loginHandler = async (req, res) => {
   try {
@@ -180,6 +275,45 @@ res.cookie("token", token, {
 
 
 
+
+ const mobileLoginHandler = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await authenticateUser(email, password);
+
+    const accessToken = generateToken({
+      id: user._id,
+      username: user.username,
+      country: user.country,
+    });
+
+    // Optional separate refresh token
+    const refreshToken = generateRefreshToken({
+      id: user._id,
+    });
+
+    return res.status(200).json({
+      message: "Login successful",
+
+      accessToken,
+      refreshToken,
+
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+      },
+    });
+  } catch (err) {
+    return res.status(401).json({
+      message: err.message,
+      errors: [err.message],
+    });
+  }
+};
+
+
 const logoutHandler = (req, res) => {
   try {
     // res.clearCookie("token", {
@@ -246,4 +380,6 @@ module.exports = {
   loginHandler,
   logoutHandler,
   googleCallbackHandler, // ✅ add this
+  mobileLoginHandler, // ✅ add this
+  mobileJoinHandler, // ✅ add this
 };

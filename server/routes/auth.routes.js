@@ -1,5 +1,5 @@
 const express = require("express");
-const { joinHandler, loginHandler } = require("../controllers/auth.controller");
+const { joinHandler, loginHandler, mobileLoginHandler, mobileJoinHandler } = require("../controllers/auth.controller");
 const validate = require("../middlewares/validate");
 const { joinSchema, loginSchema } = require("../validators/auth.schema");
 
@@ -60,8 +60,10 @@ router.get(
 
 
 router.post("/join", validate(joinSchema), joinHandler);
+router.post("/mobile/join", validate(joinSchema), mobileJoinHandler);
 router.post("/login", validate(loginSchema), loginHandler);
 router.post("/logout", authMiddleware, logoutHandler);
 
+router.post("/mobile/login", validate(loginSchema), mobileLoginHandler);
 
 module.exports = router;

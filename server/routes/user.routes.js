@@ -227,6 +227,143 @@ const {
 
 const authMiddleware = require("../middlewares/auth");
 const User = require("../models/User");
+const FollowRequest = require("../models/FollowRequest");
+
+
+/ ─────────────────────────────────────────────────────────────────────────────/;
+// GET /api/users/suggested?page=1&limit=6
+//
+// Returns a paginated list of users the current user:
+//   - is NOT already following
+//   - has NOT already sent a follow request to
+//   - has NOT blocked / been blocked by
+//   - is NOT themselves
+//
+// Ranking priority (descending):
+//   1. Friends-of-friends (users followed by people you follow)
+//   2. Same country
+//   3. Follower count (most popular first)
+// ─────────────────────────────────────────────────────────────────────────────
+router.get("/suggested", authMiddleware, async (req, res) => {
+  try {
+    const currentUserId = req.user.id;
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(20, parseInt(req.query.limit) || 6);
+    const skip = (page - 1) * limit;
+
+    // ── 1. Gather IDs to exclude ─────────────────────────────────────────────
+    const currentUser = await User.findById(currentUserId)
+      .select("following blockedUsers country")
+      .lean();
+
+    if (!currentUser)
+      return res.status(401).json({ message: "User not found" });
+
+    // Users the current user already sent a request to (pending or accepted)
+    const sentRequests = await FollowRequest.find({ from: currentUserId })
+      .select("to")
+      .lean();
+
+    const sentToIds = sentRequests.map((r) => r.to);
+
+    // Full exclusion set: self + following + blocked + already requested
+    const excludeIds = [
+      currentUserId,
+      ...currentUser.following,
+      ...currentUser.blockedUsers,
+      ...sentToIds,
+    ];
+
+    // ── 2. Build friends-of-friends set ──────────────────────────────────────
+    // Who do the people I follow, follow? Those are warm suggestions.
+    let friendsOfFriends = [];
+    if (currentUser.following.length > 0) {
+      const followedUsers = await User.find({
+        _id: { $in: currentUser.following },
+      })
+        .select("following")
+        .lean();
+
+      const fofSet = new Set();
+      for (const u of followedUsers) {
+        for (const id of u.following) {
+          const idStr = id.toString();
+          // Only add if not already in the exclusion list
+          if (!excludeIds.some((e) => e.toString() === idStr)) {
+            fofSet.add(idStr);
+          }
+        }
+      }
+      friendsOfFriends = Array.from(fofSet);
+    }
+
+    // ── 3. Query candidates ───────────────────────────────────────────────────
+    const candidates = await User.find({
+      _id: { $nin: excludeIds },
+      isBanned: false,
+      isActive: true,
+    })
+      .select("_id username fullName profilePicture country followers")
+      .lean();
+
+    // ── 4. Score & rank ───────────────────────────────────────────────────────
+    const fofSet = new Set(friendsOfFriends);
+
+    const scored = candidates.map((u) => {
+      const isFof = fofSet.has(u._id.toString());
+      const sameCountry = u.country === currentUser.country;
+      const followerCount = u.followers?.length ?? 0;
+
+      // Score: friends-of-friends gets the biggest boost
+      const score =
+        (isFof ? 1000 : 0) +
+        (sameCountry ? 100 : 0) +
+        Math.min(followerCount, 99); // cap so popularity doesn't dominate over fof
+
+      return { ...u, _score: score, mutualCount: isFof ? 1 : 0 };
+    });
+
+    scored.sort((a, b) => b._score - a._score);
+
+    // ── 5. Paginate & shape response ──────────────────────────────────────────
+    const paginated = scored.slice(skip, skip + limit);
+
+    const result = paginated.map(({ _score, followers, ...u }) => ({
+      _id: u._id,
+      username: u.username,
+      fullName: u.fullName,
+      profilePicture: u.profilePicture,
+      country: u.country,
+      followersCount: followers?.length ?? 0,
+      mutualCount: u.mutualCount,
+    }));
+
+    return res.json(result);
+  } catch (err) {
+    console.error("GET /users/suggested error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/users/follow-requests/sent/count
+//
+// Returns the number of pending follow requests the current user has sent.
+// Used by the empty feed state to show "X pending requests" messaging.
+// ─────────────────────────────────────────────────────────────────────────────
+router.get("/follow-requests/sent/count", authMiddleware, async (req, res) => {
+  try {
+    const count = await FollowRequest.countDocuments({
+      from: req.user.id,
+      status: "pending",
+    });
+
+    return res.json({ count });
+  } catch (err) {
+    console.error("GET /users/follow-requests/sent/count error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
 
 
 // ── GET /api/users/blocked ─────────────────────────────────────
@@ -362,7 +499,6 @@ router.get("/:userId/block-status", authMiddleware, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
 
 
 
