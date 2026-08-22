@@ -245,7 +245,7 @@ res.cookie("token", token, {
     : "lax", // dev (localhost safe)
 
   domain: isProd
-    ? ".weblinkup.online" // prod only
+    ? ".quikchat.live" // prod only
     : undefined, // dev → DO NOT set domain
 
   path: "/",
@@ -326,7 +326,7 @@ const logoutHandler = (req, res) => {
     res.clearCookie("token", {
       path: "/",
       domain:
-        process.env.NODE_ENV === "production" ? ".weblinkup.online" : undefined,
+        process.env.NODE_ENV === "production" ? ".quikchat.live" : undefined,
     });
 
     return res.status(200).json({
@@ -361,7 +361,7 @@ const googleCallbackHandler = (req, res) => {
       httpOnly: true,
       secure: isProd,
       sameSite: "lax",
-      domain: isProd ? ".weblinkup.online" : undefined,
+      domain: isProd ? ".quikchat.live" : undefined,
       path: "/",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });

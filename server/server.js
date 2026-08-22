@@ -39,7 +39,7 @@ const allowedOrigins = [
   "http://localhost:5173",
   // "https://boomless-plushed-paisley.ngrok-free.dev",
   "https://video-project-v1-frontend-app.onrender.com",
-  "https://app.weblinkup.online",
+  "https://quikchat.live",
 ];
 
 app.use(
